@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubevirt-image-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: kubevirt-image-service
+  template:
+    metadata:
+      labels:
+        name: kubevirt-image-service
+    spec:
+      serviceAccountName: kubevirt-image-service
+      containers:
+        - name: kubevirt-image-service
+          image: kubevirt-image-service
+          command:
+          - kubevirt-image-service
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "kubevirt-image-service"

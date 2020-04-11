@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubevirt-image-service
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-image-service
+roleRef:
+  kind: Role
+  name: kubevirt-image-service
+  apiGroup: rbac.authorization.k8s.io

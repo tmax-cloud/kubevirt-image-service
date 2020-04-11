@@ -1,0 +1,13 @@
+apiVersion: hypercloud.tmaxanc.com/v1alpha1
+kind: VirtualMachineImage
+metadata:
+  name: myubuntu
+spec:
+  source:
+    http: https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: "3Gi"

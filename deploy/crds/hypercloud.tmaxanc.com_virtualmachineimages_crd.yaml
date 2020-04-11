@@ -152,6 +152,8 @@ spec:
                   type: string
               type: object
             source:
+              description: VirtualMachineImageSource provides parameters to create
+                a VirtualMachineImage from an HTTP source
               properties:
                 http:
                   type: string
@@ -166,6 +168,7 @@ spec:
           description: VirtualMachineImageStatus defines the observed state of VirtualMachineImage
           properties:
             state:
+              description: State is the current state of VirtualMachineImage
               type: string
           required:
           - state

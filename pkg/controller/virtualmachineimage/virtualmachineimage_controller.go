@@ -2,7 +2,7 @@ package virtualmachineimage
 
 import (
 	"context"
-
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	hypercloudv1alpha1 "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -71,9 +71,9 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling VirtualMachineImage")
 
-	// Fetch the VirtualMachineImage instance
-	instance := &hypercloudv1alpha1.VirtualMachineImage{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// Fetch the VirtualMachineImage image
+	image := &hypercloudv1alpha1.VirtualMachineImage{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, image)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -86,8 +86,24 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 	}
 
 	// Update state to Creating
-	if instance.Status.State != hypercloudv1alpha1.VirtualMachineImageStateCreating {
-		i := instance.DeepCopy()
+	if image.Status.State != hypercloudv1alpha1.VirtualMachineImageStateCreating {
+		// Create an PVC
+		pvc := &corev1.PersistentVolumeClaim{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name:      image.Name + "-pvc",
+				Namespace: image.Namespace,
+			},
+			Spec: image.Spec.PVC,
+		}
+		if err := r.client.Create(context.Background(), pvc); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		i := image.DeepCopy()
 		i.Status.State = hypercloudv1alpha1.VirtualMachineImageStateCreating
 		if err := r.client.Status().Update(context.Background(), i); err != nil {
 			return reconcile.Result{}, err

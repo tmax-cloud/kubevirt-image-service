@@ -19,15 +19,27 @@ type VirtualMachineImageSpec struct {
 // VirtualMachineImageState is the current state of VirtualMachineImage
 type VirtualMachineImageState string
 
+// VirtualMachineImageReason indicated why it is in error state
+type VirtualMachineImageReason string
+
 const (
-	// VirtualMachineImageStateCreating represents a VirtualMachineImage in Creating
-	VirtualMachineImageStateCreating VirtualMachineImageState = "Creating"
+	VirtualMachineImageStatePvcCreating VirtualMachineImageState = "PvcCreating"
+
+	VirtualMachineImageStateCreating  VirtualMachineImageState = "Creating"
+	VirtualMachineImageStateAvailable VirtualMachineImageState = "Available"
+	VirtualMachineImageStateError     VirtualMachineImageState = "Error"
+)
+
+const (
+	VirtualMachineImageReasonFailedCreatePvc VirtualMachineImageReason = "FailedCreatePvc"
 )
 
 // VirtualMachineImageStatus defines the observed state of VirtualMachineImage
 type VirtualMachineImageStatus struct {
 	// State is the current state of VirtualMachineImage
 	State VirtualMachineImageState `json:"state"`
+	// Reason indicated why it is in error state
+	Reason VirtualMachineImageReason `json:"reason"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

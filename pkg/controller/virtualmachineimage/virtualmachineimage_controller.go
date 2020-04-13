@@ -2,14 +2,15 @@ package virtualmachineimage
 
 import (
 	"context"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	hypercloudv1alpha1 "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	hypercloudv1alpha1 "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -66,14 +67,29 @@ type ReconcileVirtualMachineImage struct {
 	scheme *runtime.Scheme
 }
 
+func getPvcName(vmiName string) string {
+	return vmiName + "-pvc"
+}
+
+func getPvcNamespacedName(vmi *hypercloudv1alpha1.VirtualMachineImage) types.NamespacedName {
+	return types.NamespacedName{Namespace: vmi.Namespace, Name: getPvcName(vmi.Name)}
+}
+
+func getPvcObjectMeta(vmi *hypercloudv1alpha1.VirtualMachineImage) v1.ObjectMeta {
+	return v1.ObjectMeta{
+		Name:      getPvcName(vmi.Name),
+		Namespace: vmi.Namespace,
+	}
+}
+
 // Reconcile reads that state of the cluster for a VirtualMachineImage object and makes changes based on the state read
 func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling VirtualMachineImage")
+	reqLogger.Info("Reconciling Start")
 
-	// Fetch the VirtualMachineImage image
-	image := &hypercloudv1alpha1.VirtualMachineImage{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, image)
+	// Fetch the VirtualMachineImage vmi
+	vmi := &hypercloudv1alpha1.VirtualMachineImage{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, vmi)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -85,30 +101,75 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	// Update state to Creating
-	if image.Status.State != hypercloudv1alpha1.VirtualMachineImageStateCreating {
-		// Create an PVC
+	// Delete first if we need
+	if isVmiToBeDeleted(vmi) {
+		reqLogger.Info("Start finalize")
+		return r.finalize(reqLogger, vmi)
+	}
+
+	// Add finalizer for this CR
+	if err := r.addFinalizer(vmi); err != nil {
+		reqLogger.Info("Add finalizer")
+		return reconcile.Result{}, err
+	}
+
+	// Prevent shared cache pollution
+	vmi = vmi.DeepCopy()
+
+	// Create pvc if needed...
+	pvcFound := &corev1.PersistentVolumeClaim{}
+	if err := r.client.Get(context.Background(), getPvcNamespacedName(vmi), pvcFound); err != nil {
+		reqLogger.Info("PVC not exists, Create a new one")
+		// pvc not exists, create
+
+		// Update state to PvcCreating
+		if err := r.updateState(vmi, hypercloudv1alpha1.VirtualMachineImageStatePvcCreating); err != nil {
+			reqLogger.Info("Failed to update state")
+			return reconcile.Result{}, err
+		}
+
 		pvc := &corev1.PersistentVolumeClaim{
 			TypeMeta: v1.TypeMeta{
 				Kind:       "PersistentVolumeClaim",
 				APIVersion: "v1",
 			},
-			ObjectMeta: v1.ObjectMeta{
-				Name:      image.Name + "-pvc",
-				Namespace: image.Namespace,
-			},
-			Spec: image.Spec.PVC,
+			ObjectMeta: getPvcObjectMeta(vmi),
+			Spec:       vmi.Spec.PVC,
 		}
-		if err := r.client.Create(context.Background(), pvc); err != nil {
+
+		// Set vmi as the owner and controller
+		if err := controllerutil.SetControllerReference(vmi, pvc, r.scheme); err != nil {
+			reqLogger.Info("Failed set owner")
 			return reconcile.Result{}, err
 		}
 
-		i := image.DeepCopy()
-		i.Status.State = hypercloudv1alpha1.VirtualMachineImageStateCreating
-		if err := r.client.Status().Update(context.Background(), i); err != nil {
+		if err := r.client.Create(context.Background(), pvc); err != nil {
+			if err := r.updateStateErrorWithReason(vmi, hypercloudv1alpha1.VirtualMachineImageReasonFailedCreatePvc); err != nil {
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Failed create")
 			return reconcile.Result{}, err
 		}
+
+		// TODO: import...
 	}
 
+	if err := r.updateState(vmi, hypercloudv1alpha1.VirtualMachineImageStateAvailable); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Reconciling OK")
+
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVirtualMachineImage) updateState(vmi *hypercloudv1alpha1.VirtualMachineImage, state hypercloudv1alpha1.VirtualMachineImageState) error {
+	vmi.Status.State = state
+	return r.client.Status().Update(context.Background(), vmi)
+}
+
+func (r *ReconcileVirtualMachineImage) updateStateErrorWithReason(vmi *hypercloudv1alpha1.VirtualMachineImage, reason hypercloudv1alpha1.VirtualMachineImageReason) error {
+	vmi.Status.State = hypercloudv1alpha1.VirtualMachineImageStateError
+	vmi.Status.Reason = reason
+	return r.client.Status().Update(context.Background(), vmi)
 }

@@ -134,6 +134,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 			log.Info("Skipping CR metrics server creation; not running in a cluster.")
 			return
 		}
+
 		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	}
 
@@ -152,6 +153,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	services := []*v1.Service{service}
+
 	_, err = metrics.CreateServiceMonitors(cfg, namespace, services)
 	if err != nil {
 		log.Info("Could not create ServiceMonitor object", "error", err.Error())

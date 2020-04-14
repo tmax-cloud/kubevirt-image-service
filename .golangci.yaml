@@ -1,0 +1,113 @@
+run:
+  # default concurrency is a available CPU number
+  #concurrency: 4
+
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 5m
+
+  # exit code when at least one issue was found, default is 1
+  issues-exit-code: 1
+
+  # include test files or not, default is true
+  tests: true
+
+  # list of build tags, all linters use it. Default is empty list.
+  #build-tags:
+  #  - mytag
+
+  #skip-dirs:
+  #  - build
+
+  # default is true. Enables skipping of directories:
+  skip-dirs-use-default: true
+
+  skip-files:
+    - ".*\\.pb\\.go"
+
+issues:
+  exclude-use-default: false
+
+linters:
+  enable:
+    - deadcode
+    - dupl
+    - errcheck
+    - goconst
+    - gocritic
+    - golint
+    - gomnd
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+  disable:
+    - bodyclose
+    - depguard
+    - dogsled
+    - funlen
+    - gochecknoinits
+    - gochecknoglobals
+    - gocognit
+    - gocyclo
+    - godox
+    - gofmt
+    - goprintffuncname
+    - gosec
+    - interfacer
+    - maligned
+    - nakedret
+    - prealloc
+    - rowserrcheck
+    - scopelint
+    - stylecheck
+    - wsl
+    - goimports
+
+linters-settings:
+  dupl:
+    threshold: 100
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - ifElseChain
+      - octalLiteral
+      - wrapperFunc
+  gocyclo:
+    min-complexity: 15
+  golint:
+    min-confidence: 0.8
+  gomnd:
+    settings:
+      mnd:
+        checks: argument,case,condition,operation,return,assign
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+  lll:
+    line-length: 200
+    tab-width: 1
+  misspell:
+    locale: US
+    ignore-words:
+      - write-down-word-to-ignore-misspell-check

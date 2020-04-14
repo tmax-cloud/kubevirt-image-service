@@ -1,0 +1,33 @@
+stages:
+- static-check
+- build
+- e2e
+- deploy
+
+lint:
+  stage: static-check
+  script: ./tests.sh lint
+unit:
+  stage: static-check
+  script: ./tests.sh unit
+codegen:
+  stage: static-check
+  script: ./tests.sh codegen
+
+build:
+  stage: build
+  script: operator-sdk build quay.io/woohhan/kubevirt-image-service
+
+e2e:
+  stage: e2e
+  script:
+  - sudo minikube start --driver=none --kubernetes-version=v1.18.0
+  after_script:
+  - sudo minikube delete
+
+deploy-latest:
+  stage: deploy
+  only:
+    refs:
+    - master
+  script: docker push quay.io/woohhan/kubevirt-image-service

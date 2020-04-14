@@ -7,7 +7,7 @@ import (
 
 // VirtualMachineImageSource provides parameters to create a VirtualMachineImage from an HTTP source
 type VirtualMachineImageSource struct {
-	Http string `json:"http"`
+	HTTP string `json:"http"`
 }
 
 // VirtualMachineImageSpec defines the desired state of VirtualMachineImage
@@ -23,14 +23,16 @@ type VirtualMachineImageState string
 type VirtualMachineImageReason string
 
 const (
+	// VirtualMachineImageStatePvcCreating indicates pvc for VirtualMachineImage is creating
 	VirtualMachineImageStatePvcCreating VirtualMachineImageState = "PvcCreating"
-
-	VirtualMachineImageStateCreating  VirtualMachineImageState = "Creating"
+	// VirtualMachineImageStateAvailable indicates VirtualMachineImage is available
 	VirtualMachineImageStateAvailable VirtualMachineImageState = "Available"
-	VirtualMachineImageStateError     VirtualMachineImageState = "Error"
+	// VirtualMachineImageStateError indicates VirtualMachineImage is error
+	VirtualMachineImageStateError VirtualMachineImageState = "Error"
 )
 
 const (
+	// VirtualMachineImageReasonFailedCreatePvc indicates Failed Create PVC
 	VirtualMachineImageReasonFailedCreatePvc VirtualMachineImageReason = "FailedCreatePvc"
 )
 

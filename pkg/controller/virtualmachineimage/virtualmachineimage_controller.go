@@ -144,9 +144,10 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		}
 
 		if err := r.client.Create(context.Background(), pvc); err != nil {
-			if err := r.updateStateErrorWithReason(vmi, hypercloudv1alpha1.VirtualMachineImageReasonFailedCreatePvc); err != nil {
+			if err2 := r.updateStateErrorWithReason(vmi, hypercloudv1alpha1.VirtualMachineImageReasonFailedCreatePvc); err2 != nil {
 				return reconcile.Result{}, err
 			}
+
 			reqLogger.Info("Failed create")
 			return reconcile.Result{}, err
 		}

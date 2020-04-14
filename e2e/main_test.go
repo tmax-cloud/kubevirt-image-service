@@ -27,6 +27,7 @@ func TestKubevirtImageService(t *testing.T) {
 	waitForOperator(t, ctx)
 
 	virtualMachinImageTest(t, ctx, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}, retryInterval, timeout)
+	virtualMachineVolumeTest(t, ctx, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}, retryInterval, timeout)
 
 	// Cleanup only when all tests are succeed for debugging
 	ctx.Cleanup()

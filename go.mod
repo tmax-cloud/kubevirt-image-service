@@ -3,22 +3,9 @@ module kubevirt-image-service
 go 1.13
 
 require (
-	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
-	github.com/ant31/crd-validation v0.0.0-20180702145049-30f8a35d0ac2 // indirect
-	github.com/bugsnag/bugsnag-go v1.5.0 // indirect
-	github.com/bugsnag/panicwrap v1.2.0 // indirect
-	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
-	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
-	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
-	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
-	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
-	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/go-logr/logr v0.1.0
-	github.com/go-openapi/jsonreference v0.19.3 // indirect
-	github.com/gofrs/uuid v3.2.0+incompatible // indirect
-	github.com/golang/lint v0.0.0-20180702182130-06c8688daad7 // indirect
-	github.com/gorilla/handlers v1.4.0 // indirect
-	github.com/gregjones/httpcache v0.0.0-20190203031600-7a902570cb17 // indirect
+	github.com/golang/protobuf v1.4.0 // indirect
+	github.com/golangci/golangci-lint v1.25.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/improbable-eng/thanos v0.3.2 // indirect
 	github.com/kubernetes-csi/external-snapshotter v1.2.2
@@ -26,23 +13,19 @@ require (
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
-	github.com/onsi/ginkgo v1.11.0
-	github.com/onsi/gomega v1.8.1
+	github.com/onsi/ginkgo v1.12.0
+	github.com/onsi/gomega v1.9.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible // indirect
 	github.com/operator-framework/operator-sdk v0.17.0
-	github.com/prometheus/tsdb v0.8.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/xenolf/lego v0.3.2-0.20160613233155-a9d8cec0e656 // indirect
-	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
-	github.com/yvasiyarov/gorelic v0.0.6 // indirect
-	gonum.org/v1/gonum v0.0.0-20190710053202-4340aa3071a0 // indirect
-	gopkg.in/square/go-jose.v1 v1.1.2 // indirect
+	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
+	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f // indirect
+	golang.org/x/tools v0.0.0-20200423205358-59e73619c742 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kubernetes v1.16.2
 	sigs.k8s.io/controller-runtime v0.5.2
-	sigs.k8s.io/testing_frameworks v0.1.2 // indirect
 )
 
 // Pinned to kubernetes-1.16.2

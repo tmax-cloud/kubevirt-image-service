@@ -1,0 +1,9 @@
+apiVersion: hypercloud.tmaxanc.com/v1alpha1
+kind: VirtualMachineVolume
+metadata:
+  name: myrootdisk
+spec:
+  virtualMachineImage:
+    name: myubuntu
+  capacity:
+    storage: "3Gi"

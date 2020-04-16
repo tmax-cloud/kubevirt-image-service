@@ -4,11 +4,12 @@ metadata:
   name: myubuntu
 spec:
   source:
-    http: https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+    http: https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img
+  snapshotClassName: csi-rbdplugin-snapclass
   pvc:
     accessModes:
     - ReadWriteOnce
     resources:
       requests:
         storage: "3Gi"
-    storageClassName: standard
+    storageClassName: rook-ceph-block

@@ -21,6 +21,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190203031600-7a902570cb17 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/improbable-eng/thanos v0.3.2 // indirect
+	github.com/kubernetes-csi/external-snapshotter v1.2.2
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect

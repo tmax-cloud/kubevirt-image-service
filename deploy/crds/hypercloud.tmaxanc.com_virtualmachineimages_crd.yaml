@@ -159,6 +159,8 @@ spec:
                     backing this claim.
                   type: string
               type: object
+            snapshotClassName:
+              type: string
             source:
               description: VirtualMachineImageSource provides parameters to create
                 a VirtualMachineImage from an HTTP source
@@ -170,19 +172,16 @@ spec:
               type: object
           required:
           - pvc
+          - snapshotClassName
           - source
           type: object
         status:
           description: VirtualMachineImageStatus defines the observed state of VirtualMachineImage
           properties:
-            reason:
-              description: Reason indicated why it is in error state
-              type: string
             state:
               description: State is the current state of VirtualMachineImage
               type: string
           required:
-          - reason
           - state
           type: object
       type: object

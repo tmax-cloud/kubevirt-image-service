@@ -12,36 +12,37 @@ type VirtualMachineImageSource struct {
 
 // VirtualMachineImageSpec defines the desired state of VirtualMachineImage
 type VirtualMachineImageSpec struct {
-	Source VirtualMachineImageSource        `json:"source"`
-	PVC    corev1.PersistentVolumeClaimSpec `json:"pvc"`
+	Source            VirtualMachineImageSource        `json:"source"`
+	PVC               corev1.PersistentVolumeClaimSpec `json:"pvc"`
+	SnapshotClassName string                           `json:"snapshotClassName"`
 }
 
 // VirtualMachineImageState is the current state of VirtualMachineImage
 type VirtualMachineImageState string
 
-// VirtualMachineImageReason indicated why it is in error state
-type VirtualMachineImageReason string
-
 const (
 	// VirtualMachineImageStatePvcCreating indicates pvc for VirtualMachineImage is creating
 	VirtualMachineImageStatePvcCreating VirtualMachineImageState = "PvcCreating"
+	// VirtualMachineImageStatePvcCreatingError indicates pvc creating is error
+	VirtualMachineImageStatePvcCreatingError VirtualMachineImageState = "PvcCreatingError"
 	// VirtualMachineImageStateAvailable indicates VirtualMachineImage is available
 	VirtualMachineImageStateAvailable VirtualMachineImageState = "Available"
 	// VirtualMachineImageStateError indicates VirtualMachineImage is error
 	VirtualMachineImageStateError VirtualMachineImageState = "Error"
-)
-
-const (
-	// VirtualMachineImageReasonFailedCreatePvc indicates Failed Create PVC
-	VirtualMachineImageReasonFailedCreatePvc VirtualMachineImageReason = "FailedCreatePvc"
+	// VirtualMachineImageStateImporting (TODO)
+	VirtualMachineImageStateImporting VirtualMachineImageState = "Importing"
+	// VirtualMachineImageStateImportingError (TODO)
+	VirtualMachineImageStateImportingError VirtualMachineImageState = "ImportingError"
+	// VirtualMachineImageStateSnapshotting (TODO)
+	VirtualMachineImageStateSnapshotting VirtualMachineImageState = "Snapshotting"
+	// VirtualMachineImageStateSnapshottingError (TODO)
+	VirtualMachineImageStateSnapshottingError VirtualMachineImageState = "SnapshottingError"
 )
 
 // VirtualMachineImageStatus defines the observed state of VirtualMachineImage
 type VirtualMachineImageStatus struct {
 	// State is the current state of VirtualMachineImage
 	State VirtualMachineImageState `json:"state"`
-	// Reason indicated why it is in error state
-	Reason VirtualMachineImageReason `json:"reason"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

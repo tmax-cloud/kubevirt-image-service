@@ -4,27 +4,33 @@ stages:
 - e2e
 - deploy
 
+# static check stage
 lint:
   stage: static-check
-  script: ./tests.sh lint
+  script: ./tbox lint
 unit:
   stage: static-check
-  script: ./tests.sh unit
+  script: ./tbox unit
 codegen:
   stage: static-check
-  script: ./tests.sh codegen
+  script: ./tbox codegen
 
+# build stage
 build:
   stage: build
-  script: operator-sdk build quay.io/woohhan/kubevirt-image-service
+  script: ./tbox build
 
+# e2e stage
 e2e:
   stage: e2e
   script:
-  - sudo minikube start --driver=none --kubernetes-version=v1.18.0
+  - ./tbox minikube
+  - ./tbox e2e
   after_script:
-  - sudo minikube delete
+  - ./tbox minikube_clean
 
+# deploy stage
+# TODO: release branch
 deploy-latest:
   stage: deploy
   only:

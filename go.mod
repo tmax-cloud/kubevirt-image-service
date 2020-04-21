@@ -3,17 +3,51 @@ module kubevirt-image-service
 go 1.13
 
 require (
+	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
+	github.com/ant31/crd-validation v0.0.0-20180702145049-30f8a35d0ac2 // indirect
+	github.com/bugsnag/bugsnag-go v1.5.0 // indirect
+	github.com/bugsnag/panicwrap v1.2.0 // indirect
+	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
+	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
+	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
+	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
+	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/go-logr/logr v0.1.0
-	github.com/operator-framework/operator-sdk v0.15.2
+	github.com/go-openapi/jsonreference v0.19.3 // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/golang/lint v0.0.0-20180702182130-06c8688daad7 // indirect
+	github.com/gorilla/handlers v1.4.0 // indirect
+	github.com/gregjones/httpcache v0.0.0-20190203031600-7a902570cb17 // indirect
+	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/improbable-eng/thanos v0.3.2 // indirect
+	github.com/lib/pq v1.2.0 // indirect
+	github.com/mailru/easyjson v0.7.0 // indirect
+	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
+	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
+	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible // indirect
+	github.com/operator-framework/operator-sdk v0.17.0
+	github.com/prometheus/tsdb v0.8.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.0.0
-	k8s.io/apimachinery v0.0.0
+	github.com/xenolf/lego v0.3.2-0.20160613233155-a9d8cec0e656 // indirect
+	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
+	github.com/yvasiyarov/gorelic v0.0.6 // indirect
+	gonum.org/v1/gonum v0.0.0-20190710053202-4340aa3071a0 // indirect
+	gopkg.in/square/go-jose.v1 v1.1.2 // indirect
+	k8s.io/api v0.17.4
+	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.4.0
+	k8s.io/kubernetes v1.16.2
+	sigs.k8s.io/controller-runtime v0.5.2
+	sigs.k8s.io/testing_frameworks v0.1.2 // indirect
 )
 
 // Pinned to kubernetes-1.16.2
 replace (
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	k8s.io/api => k8s.io/api v0.0.0-20191016110408-35e52d86657a
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191016113550-5357c4baaf65
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115801-a2eda9f80ab8
@@ -34,6 +68,7 @@ replace (
 	k8s.io/kubelet => k8s.io/kubelet v0.0.0-20191016114556-7841ed97f1b2
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.0.0-20191016115753-cf0698c3a16b
 	k8s.io/metrics => k8s.io/metrics v0.0.0-20191016113814-3b1a734dba6e
+	// for e2e test, see link: https://github.com/nytimes/gizmo/issues/219
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20191016112829-06bb3c9d77c9
 )
 

@@ -1,13 +1,15 @@
 #Contributing
 
 ## 개발 워크플로우
-kis는 개발을 위한 모든 도구를 자동화하여 제공합니다.
-
-### 개발 환경 구축
-Minikube를 사용해서 개발환경을 자동으로 구축합니다. (주의: none 드라이버를 사용하며, 기존의 Minikube는 삭제됩니다.)
-
 ```
-./tests minikube
+# 개발 환경 구축
+./tbox minikube
+
+# e2e 테스트
+./tbox e2e
+
+# 개발 환경 삭제
+./tbox minikube_clean
 ```
 
 ### 개발 및 테스트

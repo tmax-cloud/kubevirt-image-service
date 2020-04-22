@@ -19,29 +19,51 @@ function e2e() {
   operator-sdk test local ./e2e --debug --verbose
 }
 
+function build() {
+  operator-sdk build quay.io/woohhan/kubevirt-image-service:canary
+}
+
+function minikube() {
+  sudo minikube delete
+  sudo rm -rf /var/lib/rook
+  CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
+  kubectl apply -f ./hack/rook-ceph/common.yaml
+  kubectl apply -f ./hack/rook-ceph/operator.yaml
+  kubectl wait --for=condition=Available deployment/rook-ceph-operator -n rook-ceph
+  kubectl apply -f ./hack/rook-ceph/cluster-test.yaml
+  wait_condition "kubectl get cephclusters.ceph.rook.io -n rook-ceph | grep Created" 300
+  kubectl apply -f ./hack/rook-ceph/storageclass-test.yaml
+  kubectl apply -f ./hack/rook-ceph/snapshotclass.yaml
+  sleep 5
+}
+
+function minikube_clean() {
+  sudo minikube delete
+  sudo rm -rf /var/lib/rook
+}
+
+function wait_condition {
+  cond=$1
+  timeout=$2
+
+  for ((i=0; i<timeout; i+=5)) do
+    echo "Waiting for ${i}s condition: \"$cond\""
+    if eval $cond > /dev/null 2>&1; then echo "Conditon met"; return 0; fi;
+    sleep 5
+  done
+
+  echo "Condition timeout"
+  return 1
+}
+
 case "${1:-}" in
 lint)       lint;;
 unit)       unit;;
 codegen)    codegen;;
+build)      build;;
+minikube)   minikube;;
+minikube_clean) minikube_clean;;
 e2e)        e2e;;
-build)
-  operator-sdk build quay.io/woohhan/kubevirt-image-service:canary
-  ;;
-minikube)
-  # TODO: deploy rook
-  sudo minikube delete
-  CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
-  ;;
-minikube_clean)
-  sudo minikube delete
-  ;;
-deploy)
-  kubectl apply -f deploy/role.yaml
-  kubectl apply -f deploy/role_binding.yaml
-  kubectl apply -f deploy/service_account.yaml
-  kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachineimages_crd.yaml
-  sed 's|kubevirt-image-service:latest|kubevirt-image-service:canary|' deploy/operator.yaml | kubectl apply -f -
-  ;;
 *)
     echo " $0 [command]
 Test Toolbox
@@ -53,7 +75,6 @@ Available Commands:
   build
   minikube
   minikube_clean
-  deploy
   e2e
 " >&2
     ;;

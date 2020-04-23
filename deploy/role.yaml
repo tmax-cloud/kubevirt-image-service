@@ -67,18 +67,6 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - ypercloud.tmaxanc.com
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - hypercloud.tmaxanc.com
   resources:
   - '*'
@@ -90,3 +78,9 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'

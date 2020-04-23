@@ -16,11 +16,14 @@ function codegen() {
 }
 
 function e2e() {
-  operator-sdk test local ./e2e --debug --verbose
+  operator-sdk test local ./e2e --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary
 }
 
 function build() {
-  operator-sdk build quay.io/woohhan/kubevirt-image-service:canary
+  docker rmi quay.io/tmaxanc/kubevirt-image-service:canary
+  operator-sdk build quay.io/tmaxanc/kubevirt-image-service:canary
+  docker login -u="tmaxanc+robot" -p="63GPHMM2K3FB7UARJBYIZPMKGAGQ2UWZ4FZZI6HYP6NX6T94IWH99YKIGI37INIU" quay.io
+  docker push quay.io/tmaxanc/kubevirt-image-service:canary
 }
 
 function minikube() {

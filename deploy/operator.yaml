@@ -15,7 +15,7 @@ spec:
       serviceAccountName: kubevirt-image-service
       containers:
         - name: kubevirt-image-service
-          image: quay.io/woohhan/kubevirt-image-service:latest
+          image: quay.io/tmaxanc/kubevirt-image-service:latest
           command:
           - kubevirt-image-service
           imagePullPolicy: Always

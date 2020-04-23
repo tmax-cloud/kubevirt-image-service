@@ -36,4 +36,6 @@ deploy-latest:
   only:
     refs:
     - master
-  script: docker push quay.io/woohhan/kubevirt-image-service
+  script:
+  - docker tag quay.io/tmaxanc/kubevirt-image-service:canary quay.io/tmaxanc/kubevirt-image-service:latest
+  - docker push quay.io/tmaxanc/kubevirt-image-service:latest

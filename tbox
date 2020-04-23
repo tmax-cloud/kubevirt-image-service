@@ -8,11 +8,28 @@ function unit() {
   operator-sdk test local ./pkg/... --debug --verbose
 }
 
-# TODO: better...
 function codegen() {
+  echo "Check go mod verify"
+  gomodsha=$(sha512sum go.mod)
+  gosumsha=$(sha512sum go.sum)
+  go mod verify
+  if [[ $gomodsha != $(sha512sum go.mod) ]]; then
+    echo "ERROR: go.mod was modified by 'go mod verify'"
+    exit 1
+  fi
+  if [[ $gosumsha != $(sha512sum go.sum) ]]; then
+    echo "ERROR: go.sum was modified by 'go mod verify'"
+    exit 1
+  fi
+
+  echo "Check operator-sdk generate"
   operator-sdk generate crds
   operator-sdk generate k8s
-  git status --porcelain 2>/dev/null| grep "^??" | wc -l
+  if [[ $(git status --porcelain 2>/dev/null | wc -l) != 0 ]]; then
+    echo "ERROR: The source code was modified by 'operator-sdk generate'"
+    echo "If you haven't committed yet, Please commit and re-run it again"
+    exit 1
+  fi
 }
 
 function e2e() {

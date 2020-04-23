@@ -16,27 +16,27 @@ function codegen() {
 }
 
 function e2e() {
-  operator-sdk test local ./e2e --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary
+  operator-sdk test local ./e2e --debug --verbose --image localhost:5000/kubevirt-image-service:canary
 }
 
 function build() {
-  docker rmi quay.io/tmaxanc/kubevirt-image-service:canary
-  operator-sdk build quay.io/tmaxanc/kubevirt-image-service:canary
-  docker login -u="tmaxanc+robot" -p="63GPHMM2K3FB7UARJBYIZPMKGAGQ2UWZ4FZZI6HYP6NX6T94IWH99YKIGI37INIU" quay.io
-  docker push quay.io/tmaxanc/kubevirt-image-service:canary
+  docker rmi localhost:5000/kubevirt-image-service:canary --force
+  operator-sdk build localhost:5000/kubevirt-image-service:canary
+  docker push localhost:5000/kubevirt-image-service:canary
 }
 
 function minikube() {
   sudo minikube delete
   sudo rm -rf /var/lib/rook
   CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
-  kubectl apply -f ./hack/rook-ceph/common.yaml
-  kubectl apply -f ./hack/rook-ceph/operator.yaml
+  kubectl apply -f hack/kube-registry.yaml
+  kubectl apply -f hack/rook-ceph/common.yaml
+  kubectl apply -f hack/rook-ceph/operator.yaml
   kubectl wait --for=condition=Available deployment/rook-ceph-operator -n rook-ceph
-  kubectl apply -f ./hack/rook-ceph/cluster-test.yaml
+  kubectl apply -f hack/rook-ceph/cluster-test.yaml
   wait_condition "kubectl get cephclusters.ceph.rook.io -n rook-ceph | grep Created" 300
-  kubectl apply -f ./hack/rook-ceph/storageclass-test.yaml
-  kubectl apply -f ./hack/rook-ceph/snapshotclass.yaml
+  kubectl apply -f hack/rook-ceph/storageclass-test.yaml
+  kubectl apply -f hack/rook-ceph/snapshotclass.yaml
   sleep 5
 }
 

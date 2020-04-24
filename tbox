@@ -5,7 +5,7 @@ function lint() {
 }
 
 function unit() {
-  operator-sdk test local ./pkg/... --debug --verbose
+  go test -v ./pkg/... -ginkgo.v -ginkgo.failFast
 }
 
 function codegen() {

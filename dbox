@@ -5,6 +5,7 @@ r)
   operator-sdk run --local
   ;;
 g)
+  go mod verify
   operator-sdk generate crds
   operator-sdk generate k8s
   ;;

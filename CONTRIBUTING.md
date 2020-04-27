@@ -11,9 +11,14 @@
 5. e2e 테스트를 진행합니다.
 
 ## 체크리스트
+* [ ] 커밋을 정리하고 적절한 제목/내용을 작성하였는가
+* [ ] 코드 제네레이트를 완료했는가? (`go mod verify`, `operator-sdk generate crds`, `operator-sdk generate k8s`)
+* [ ] [체인지로그](CHANGELOG.md)와 [유저가이드](docs/USERGUIDE.md)를 작성했는가? 
 * [ ] 필요한 유닛 테스트, e2e 테스트를 작성하였는가
-* [ ] 코드 제네레이트를 완료했는가? (`go mod verify`, `operator-sdk generate crds/k8s`)
-* [ ] 적절한 커밋 메세지와 제목을 작성하였는가
-* [ ] 기능당 1개의 커밋으로 커밋을 정리하였는가
-* [ ] 릴리즈 노트에 반영 내용을 적었는가
-* [ ] 유저 가이드에 필요한 내용을 적었는가
+* [ ] CRD Validation
+
+### 주석/로그 작성법
+- TODO
+
+### 테스트 작성법
+- TODO

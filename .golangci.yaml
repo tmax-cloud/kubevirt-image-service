@@ -30,7 +30,6 @@ issues:
 linters:
   enable:
     - deadcode
-    - dupl
     - errcheck
     - goconst
     - gocritic
@@ -71,6 +70,7 @@ linters:
     - stylecheck
     - wsl
     - goimports
+    - dupl
 
 linters-settings:
   dupl:

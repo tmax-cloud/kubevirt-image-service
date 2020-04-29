@@ -10,7 +10,7 @@ import (
 )
 
 func (r *ReconcileVirtualMachineImage) getSnapshot() (*snapshotv1alpha1.VolumeSnapshot, error) {
-	snapshotName := r.getSnapshotName()
+	snapshotName := GetSnapshotName(r.vmi.Name)
 	snapshotNamespace := r.getNamespace()
 	snapshot := &snapshotv1alpha1.VolumeSnapshot{}
 	if err := r.client.Get(context.Background(), types.NamespacedName{Namespace: snapshotNamespace, Name: snapshotName}, snapshot); err != nil {
@@ -21,7 +21,7 @@ func (r *ReconcileVirtualMachineImage) getSnapshot() (*snapshotv1alpha1.VolumeSn
 }
 
 func (r *ReconcileVirtualMachineImage) createSnapshot() (*snapshotv1alpha1.VolumeSnapshot, error) {
-	r.log.Info("Create new snapshot", "name", r.getSnapshotName(), "namespace", r.getNamespace())
+	r.log.Info("Create new snapshot", "name", GetSnapshotName(r.vmi.Name), "namespace", r.getNamespace())
 	snapshot, err := r.newSnapshot()
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (r *ReconcileVirtualMachineImage) createSnapshot() (*snapshotv1alpha1.Volum
 }
 
 func (r *ReconcileVirtualMachineImage) deleteSnapshot() error {
-	snapshotName := r.getSnapshotName()
+	snapshotName := GetSnapshotName(r.vmi.Name)
 	snapshotNamespace := r.getNamespace()
 	r.log.Info("Delete snapshot", "name", snapshotName, "namespace", snapshotNamespace)
 	snapshot := &snapshotv1alpha1.VolumeSnapshot{
@@ -45,12 +45,13 @@ func (r *ReconcileVirtualMachineImage) deleteSnapshot() error {
 	return r.client.Delete(context.Background(), snapshot)
 }
 
-func (r *ReconcileVirtualMachineImage) getSnapshotName() string {
-	return r.vmi.Name + "-snapshot"
+// GetSnapshotName is called to create snapshot name
+func GetSnapshotName(name string) string {
+	return name + "-snapshot"
 }
 
 func (r *ReconcileVirtualMachineImage) newSnapshot() (*snapshotv1alpha1.VolumeSnapshot, error) {
-	snapshotName := r.getSnapshotName()
+	snapshotName := GetSnapshotName(r.vmi.Name)
 	snapshotNamespace := r.getNamespace()
 	pvcName := r.getPvcName(false)
 	snapshot := &snapshotv1alpha1.VolumeSnapshot{

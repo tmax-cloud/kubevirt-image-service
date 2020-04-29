@@ -80,7 +80,7 @@ var _ = Describe("getSnapshotName", func() {
 		expectedSnapshotName := "testvmi-snapshot"
 
 		r := createFakeReconcileVmi()
-		snapshotName := r.getSnapshotName()
+		snapshotName := GetSnapshotName(r.vmi.Name)
 
 		Expect(snapshotName).To(Equal(expectedSnapshotName))
 	})

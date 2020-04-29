@@ -75,7 +75,7 @@ var _ = Describe("deleteSnapshot", func() {
 	})
 })
 
-var _ = Describe("getSnapshotName", func() {
+var _ = Describe("GetSnapshotName", func() {
 	It("Should get the snapshotName", func() {
 		expectedSnapshotName := "testvmi-snapshot"
 

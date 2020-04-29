@@ -81,12 +81,12 @@ var _ = Describe("deletePvc", func() {
 	})
 })
 
-var _ = Describe("getPvcName", func() {
+var _ = Describe("GetPvcName", func() {
 	It("Should get the pvcName", func() {
 		expectedPvcName := "testvmi-pvc"
 
 		r := createFakeReconcileVmi()
-		pvcName := r.getPvcName(false)
+		pvcName := GetPvcName(r.vmi.Name, false)
 
 		Expect(pvcName).To(Equal(expectedPvcName))
 	})

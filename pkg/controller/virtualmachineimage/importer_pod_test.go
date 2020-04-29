@@ -65,12 +65,12 @@ var _ = Describe("deleteImporterPod", func() {
 	})
 })
 
-var _ = Describe("getImporterPodName", func() {
+var _ = Describe("GetImporterPodName", func() {
 	It("Should get the importerPodName", func() {
 		expectedImporterPodName := "testvmi-importer"
 
 		r := createFakeReconcileVmi()
-		importerPodName := r.getImporterPodName()
+		importerPodName := GetImporterPodName(r.vmi.Name)
 
 		Expect(importerPodName).To(Equal(expectedImporterPodName))
 	})

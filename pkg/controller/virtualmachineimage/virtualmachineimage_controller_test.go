@@ -55,7 +55,7 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 		By("Checking PVC has been created")
 		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = reconciler.client.Get(context.Background(), types.NamespacedName{Name: reconciler.getPvcName(false), Namespace: "default"}, pvcFound)
+		err = reconciler.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(reconciler.vmi.Name, false), Namespace: "default"}, pvcFound)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Spec.PVC).To(Equal(pvcFound.Spec))
 		Expect(reconciler.vmi.Status.State).To(Equal(hc.VirtualMachineImageStateImporting))

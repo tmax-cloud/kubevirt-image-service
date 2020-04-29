@@ -53,7 +53,7 @@ func GetSnapshotName(name string) string {
 func (r *ReconcileVirtualMachineImage) newSnapshot() (*snapshotv1alpha1.VolumeSnapshot, error) {
 	snapshotName := GetSnapshotName(r.vmi.Name)
 	snapshotNamespace := r.getNamespace()
-	pvcName := r.getPvcName(false)
+	pvcName := GetPvcName(r.vmi.Name, false)
 	snapshot := &snapshotv1alpha1.VolumeSnapshot{
 		// TODO: without typemeta
 		TypeMeta: metav1.TypeMeta{

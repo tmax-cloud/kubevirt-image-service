@@ -44,7 +44,7 @@ const (
 )
 
 func (r *ReconcileVirtualMachineImage) getImporterPod() (*corev1.Pod, error) {
-	ipName := r.getImporterPodName()
+	ipName := GetImporterPodName(r.vmi.Name)
 	ipNamespace := r.getNamespace()
 	pod := &corev1.Pod{}
 	if err := r.client.Get(context.Background(), types.NamespacedName{Namespace: ipNamespace, Name: ipName}, pod); err != nil {
@@ -55,7 +55,7 @@ func (r *ReconcileVirtualMachineImage) getImporterPod() (*corev1.Pod, error) {
 }
 
 func (r *ReconcileVirtualMachineImage) createImporterPod() (*corev1.Pod, error) {
-	r.log.Info("Create new importerPod", "name", r.getImporterPodName(), "namespace", r.getNamespace())
+	r.log.Info("Create new importerPod", "name", GetImporterPodName(r.vmi.Name), "namespace", r.getNamespace())
 	ip, err := r.newImporterPod()
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (r *ReconcileVirtualMachineImage) createImporterPod() (*corev1.Pod, error) 
 }
 
 func (r *ReconcileVirtualMachineImage) deleteImporterPod() error {
-	ipName := r.getImporterPodName()
+	ipName := GetImporterPodName(r.vmi.Name)
 	ipNamespace := r.getNamespace()
 	r.log.Info("Delete importerPod", "name", ipName, "namespace", ipNamespace)
 	pod := &corev1.Pod{
@@ -79,12 +79,13 @@ func (r *ReconcileVirtualMachineImage) deleteImporterPod() error {
 	return r.client.Delete(context.Background(), pod)
 }
 
-func (r *ReconcileVirtualMachineImage) getImporterPodName() string {
-	return r.vmi.Name + "-importer"
+// GetImporterPodName is called to create importer pod name
+func GetImporterPodName(vmiName string) string {
+	return vmiName + "-importer"
 }
 
 func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
-	ipName := r.getImporterPodName()
+	ipName := GetImporterPodName(r.vmi.Name)
 	ipNamespace := r.getNamespace()
 	source, endpoint, err := r.getSourceAndEndpoint()
 	if err != nil {
@@ -131,7 +132,7 @@ func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 					Name: DataVolName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: r.getPvcName(false),
+							ClaimName: GetPvcName(r.vmi.Name, false),
 						},
 					},
 				},
@@ -139,7 +140,7 @@ func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 					Name: ScratchVolName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: r.getPvcName(true),
+							ClaimName: GetPvcName(r.vmi.Name, true),
 						},
 					},
 				},

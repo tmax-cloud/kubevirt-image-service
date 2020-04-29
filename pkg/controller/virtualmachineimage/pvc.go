@@ -9,7 +9,7 @@ import (
 )
 
 func (r *ReconcileVirtualMachineImage) getPvc(isScratch bool) error {
-	pvcName := r.getPvcName(isScratch)
+	pvcName := GetPvcName(r.vmi.Name, isScratch)
 	pvcNamespace := r.getNamespace()
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := r.client.Get(context.Background(), types.NamespacedName{Name: pvcName, Namespace: pvcNamespace}, pvc); err != nil {
@@ -20,7 +20,7 @@ func (r *ReconcileVirtualMachineImage) getPvc(isScratch bool) error {
 }
 
 func (r *ReconcileVirtualMachineImage) createPvc(isScratch bool) error {
-	r.log.Info("Create new pvc", "name", r.getPvcName(isScratch), "namespace", r.getNamespace())
+	r.log.Info("Create new pvc", "name", GetPvcName(r.vmi.Name, isScratch), "namespace", r.getNamespace())
 	pvc, err := r.newPvc(isScratch)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func (r *ReconcileVirtualMachineImage) createPvc(isScratch bool) error {
 }
 
 func (r *ReconcileVirtualMachineImage) deletePvc(isScratch bool) error {
-	pvcName := r.getPvcName(isScratch)
+	pvcName := GetPvcName(r.vmi.Name, isScratch)
 	pvcNamespace := r.getNamespace()
 	r.log.Info("Delete pvc", "name", pvcName, "namespace", pvcNamespace)
 	pvc := &corev1.PersistentVolumeClaim{
@@ -44,11 +44,12 @@ func (r *ReconcileVirtualMachineImage) deletePvc(isScratch bool) error {
 	return r.client.Delete(context.Background(), pvc)
 }
 
-func (r *ReconcileVirtualMachineImage) getPvcName(isScratch bool) string {
+// GetPvcName is called to create pvc name
+func GetPvcName(vmiName string, isScratch bool) string {
 	if isScratch {
-		return r.vmi.Name + "-scratch-pvc"
+		return vmiName + "-scratch-pvc"
 	}
-	return r.vmi.Name + "-pvc"
+	return vmiName + "-pvc"
 }
 
 func (r *ReconcileVirtualMachineImage) getNamespace() string {
@@ -56,7 +57,7 @@ func (r *ReconcileVirtualMachineImage) getNamespace() string {
 }
 
 func (r *ReconcileVirtualMachineImage) newPvc(isScratch bool) (*corev1.PersistentVolumeClaim, error) {
-	pvcName := r.getPvcName(isScratch)
+	pvcName := GetPvcName(r.vmi.Name, isScratch)
 	pvcNamespace := r.getNamespace()
 	pvc := &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{

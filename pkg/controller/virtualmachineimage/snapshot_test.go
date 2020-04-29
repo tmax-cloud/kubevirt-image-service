@@ -41,7 +41,7 @@ var _ = Describe("createSnapshot", func() {
 		snapshotSpecExpected := snapshotv1alpha1.VolumeSnapshotSpec{
 			Source: &corev1.TypedLocalObjectReference{
 				Kind: "PersistentVolumeClaim",
-				Name: "testvmi-pvc",
+				Name: GetPvcName("testvmi", false),
 			},
 			SnapshotContentName:     "",
 			VolumeSnapshotClassName: &snapshotClassName,
@@ -63,7 +63,7 @@ var _ = Describe("deleteSnapshot", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		snapshotFound := &snapshotv1alpha1.VolumeSnapshot{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-snapshot", Namespace: "default"}, snapshotFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetSnapshotName(r.vmi.Name), Namespace: "default"}, snapshotFound)
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
@@ -77,7 +77,7 @@ var _ = Describe("deleteSnapshot", func() {
 
 var _ = Describe("GetSnapshotName", func() {
 	It("Should get the snapshotName", func() {
-		expectedSnapshotName := "testvmi-snapshot"
+		expectedSnapshotName := "testvmi-image-snapshot"
 
 		r := createFakeReconcileVmi()
 		snapshotName := GetSnapshotName(r.vmi.Name)
@@ -99,7 +99,7 @@ var _ = Describe("newSnapshot", func() {
 				APIVersion: "snapshot.storage.k8s.io/v1alpha1",
 			},
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "testvmi-snapshot",
+				Name:      GetSnapshotName(r.vmi.Name),
 				Namespace: "default",
 				OwnerReferences: []v1.OwnerReference{
 					{
@@ -115,7 +115,7 @@ var _ = Describe("newSnapshot", func() {
 			Spec: snapshotv1alpha1.VolumeSnapshotSpec{
 				Source: &corev1.TypedLocalObjectReference{
 					Kind: "PersistentVolumeClaim",
-					Name: "testvmi-pvc",
+					Name: GetPvcName("testvmi", false),
 				},
 				VolumeSnapshotClassName: &r.vmi.Spec.SnapshotClassName,
 			},
@@ -176,13 +176,13 @@ func createFakeReconcileVmiWithSnapshot() (*ReconcileVirtualMachineImage, *snaps
 	snapshotClassName := snapshotClassName
 	snapshot := &snapshotv1alpha1.VolumeSnapshot{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "testvmi-snapshot",
+			Name:      GetSnapshotName("testvmi"),
 			Namespace: "default",
 		},
 		Spec: snapshotv1alpha1.VolumeSnapshotSpec{
 			Source: &corev1.TypedLocalObjectReference{
 				Kind: "PersistentVolumeClaim",
-				Name: "testvmi-pvc",
+				Name: GetPvcName("testvmi", false),
 			},
 			SnapshotContentName:     "",
 			VolumeSnapshotClassName: &snapshotClassName,

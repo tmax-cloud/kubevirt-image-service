@@ -20,7 +20,7 @@ var _ = Describe("getPvc", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-pvc", Namespace: "default"}, pvcFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
 		Expect(errors.IsNotFound(err)).To(BeFalse())
 
 		Expect(pvcFound.Spec).To(Equal(pvc.Spec))
@@ -54,7 +54,7 @@ var _ = Describe("createPvc", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-pvc", Namespace: "default"}, pvcFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
 		Expect(errors.IsNotFound(err)).To(BeFalse())
 
 		Expect(pvcFound.Spec).To(Equal(expectedPvcSpec))
@@ -69,7 +69,7 @@ var _ = Describe("deletePvc", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-pvc", Namespace: "default"}, pvcFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
@@ -83,7 +83,7 @@ var _ = Describe("deletePvc", func() {
 
 var _ = Describe("GetPvcName", func() {
 	It("Should get the pvcName", func() {
-		expectedPvcName := "testvmi-pvc"
+		expectedPvcName := "testvmi-image-pvc"
 
 		r := createFakeReconcileVmi()
 		pvcName := GetPvcName(r.vmi.Name, false)
@@ -107,7 +107,7 @@ var _ = Describe("newPvc", func() {
 				APIVersion: "v1",
 			},
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "testvmi-pvc",
+				Name:      GetPvcName(r.vmi.Name, false),
 				Namespace: "default",
 				OwnerReferences: []v1.OwnerReference{
 					{
@@ -141,7 +141,7 @@ func createFakeReconcileVmiWithPvc() (*ReconcileVirtualMachineImage, *corev1.Per
 	storageClassName := blockStorageClassName
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "testvmi-pvc",
+			Name:      GetPvcName("testvmi", false),
 			Namespace: "default",
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{

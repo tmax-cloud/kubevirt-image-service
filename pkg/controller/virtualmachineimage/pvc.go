@@ -47,9 +47,9 @@ func (r *ReconcileVirtualMachineImage) deletePvc(isScratch bool) error {
 // GetPvcName is called to create pvc name
 func GetPvcName(vmiName string, isScratch bool) string {
 	if isScratch {
-		return vmiName + "-scratch-pvc"
+		return vmiName + "-scratch-image-pvc"
 	}
-	return vmiName + "-pvc"
+	return vmiName + "-image-pvc"
 }
 
 func (r *ReconcileVirtualMachineImage) getNamespace() string {

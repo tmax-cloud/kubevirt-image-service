@@ -81,7 +81,7 @@ func (r *ReconcileVirtualMachineImage) deleteImporterPod() error {
 
 // GetImporterPodName is called to create importer pod name
 func GetImporterPodName(vmiName string) string {
-	return vmiName + "-importer"
+	return vmiName + "-image-importer"
 }
 
 func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {

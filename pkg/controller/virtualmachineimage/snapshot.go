@@ -47,7 +47,7 @@ func (r *ReconcileVirtualMachineImage) deleteSnapshot() error {
 
 // GetSnapshotName is called to create snapshot name
 func GetSnapshotName(name string) string {
-	return name + "-snapshot"
+	return name + "-image-snapshot"
 }
 
 func (r *ReconcileVirtualMachineImage) newSnapshot() (*snapshotv1alpha1.VolumeSnapshot, error) {

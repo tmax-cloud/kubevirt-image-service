@@ -37,7 +37,7 @@ var _ = Describe("createImporterPod", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		importerPodFound := &corev1.Pod{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-importer", Namespace: "default"}, importerPodFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetImporterPodName(r.vmi.Name), Namespace: "default"}, importerPodFound)
 		Expect(errors.IsNotFound(err)).To(BeFalse())
 
 		Expect(importerPodCreated.Spec).To(Equal(expectedImporterPodSpec))
@@ -53,7 +53,7 @@ var _ = Describe("deleteImporterPod", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		importerPodFound := &corev1.Pod{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi-importer", Namespace: "default"}, importerPodFound)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetImporterPodName(r.vmi.Name), Namespace: "default"}, importerPodFound)
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
@@ -67,7 +67,7 @@ var _ = Describe("deleteImporterPod", func() {
 
 var _ = Describe("GetImporterPodName", func() {
 	It("Should get the importerPodName", func() {
-		expectedImporterPodName := "testvmi-importer"
+		expectedImporterPodName := "testvmi-image-importer"
 
 		r := createFakeReconcileVmi()
 		importerPodName := GetImporterPodName(r.vmi.Name)
@@ -89,7 +89,7 @@ var _ = Describe("newImporterPod", func() {
 				APIVersion: "v1",
 			},
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "testvmi-importer",
+				Name:      GetImporterPodName(r.vmi.Name),
 				Namespace: "default",
 				OwnerReferences: []v1.OwnerReference{
 					{
@@ -117,7 +117,7 @@ func createFakeReconcileVmiWithImporterPod() (*ReconcileVirtualMachineImage, *co
 			APIVersion: "v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "testvmi-importer",
+			Name:      GetImporterPodName("testvmi"),
 			Namespace: "default",
 		},
 		Spec: *createImporterPodSpec(),
@@ -132,7 +132,7 @@ func createImporterPodSpec() *corev1.PodSpec {
 		},
 		Containers: []corev1.Container{
 			{
-				Name:  "testvmi-importer",
+				Name:  GetImporterPodName("testvmi"),
 				Image: ImportPodImage,
 				Args:  []string{"-v=" + ImportPodVerbose},
 				VolumeDevices: []corev1.VolumeDevice{
@@ -163,7 +163,7 @@ func createImporterPodSpec() *corev1.PodSpec {
 				Name: DataVolName,
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testvmi-pvc",
+						ClaimName: GetPvcName("testvmi", false),
 					},
 				},
 			},
@@ -171,7 +171,7 @@ func createImporterPodSpec() *corev1.PodSpec {
 				Name: ScratchVolName,
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testvmi-scratch-pvc",
+						ClaimName: GetPvcName("testvmi", true),
 					},
 				},
 			},

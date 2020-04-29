@@ -61,7 +61,7 @@ myubuntu   Available
 
 ## 이미지로부터 볼륨 생성
 ```
-# 이미지 CR을 생성합니다.
+# 볼륨 CR을 생성합니다.
 $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml
 
 # Available 상태가 될 때 까지 기다립니다.

@@ -43,7 +43,7 @@ type VirtualMachineVolumeStatus struct {
 
 // VirtualMachineVolume is the Schema for the virtualmachinevolumes API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=virtualmachinevolumes,scope=Namespaced
+// +kubebuilder:resource:path=virtualmachinevolumes,scope=Namespaced,shortName=vmv
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="Current state of VirtualMachineVolume"
 type VirtualMachineVolume struct {
 	metav1.TypeMeta   `json:",inline"`

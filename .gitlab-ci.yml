@@ -18,13 +18,14 @@ codegen:
 # build stage
 build:
   stage: build
-  script: ./tbox build
+  script:
+  - ./tbox minikube     # k8s 내부의 로컬 레지스트리를 사용하기 때문에 먼저 minikube 생성. 혹시 이전에 안지워졌어도 이 안에서 삭제함
+  - ./tbox build
 
 # e2e stage
 e2e:
   stage: e2e
   script:
-  - ./tbox minikube
   - ./tbox e2e
   after_script:
   - ./tbox minikube_clean

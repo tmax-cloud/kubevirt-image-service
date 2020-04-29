@@ -6,4 +6,5 @@ spec:
   virtualMachineImage:
     name: myubuntu
   capacity:
+    # 볼륨 사이즈는 VirtualMachineImage의 pvc 크기보다 작을 수 없습니다.
     storage: "3Gi"

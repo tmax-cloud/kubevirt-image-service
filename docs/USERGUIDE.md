@@ -31,6 +31,7 @@ $ git checkout v1.0
 
 # CRD를 배포합니다.
 $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachineimages_crd.yaml
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumes_crd.yaml
 
 # 오퍼레이터를 배포합니다.
 $ kubectl apply -f deploy/role.yaml
@@ -60,6 +61,13 @@ myubuntu   Available
 
 ## 이미지로부터 볼륨 생성
 ```
+# 이미지 CR을 생성합니다.
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml
+
+# Available 상태가 될 때 까지 기다립니다.
+$ kubectl get virtualmachinevolumes.hypercloud.tmaxanc.com
+NAME         STATE
+myrootdisk   Available
 ```
 
 ## VM 생성 할 때 볼륨 지정 방법

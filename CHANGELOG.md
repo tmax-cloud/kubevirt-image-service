@@ -4,6 +4,7 @@
 
 ### 기능 추가
 - HTTP로 부터 qcow2 이미지를 받아 VirtualMachineImage 생성 하는 기능 추가
+- VirtualMachineImage 로부터 VM 이 사용할 볼륨 생성 기능 추가
 
 ### 버그 픽스
 없음

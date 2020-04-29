@@ -49,7 +49,7 @@ type VirtualMachineImageStatus struct {
 
 // VirtualMachineImage is the Schema for the virtualmachineimages API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=virtualmachineimages,scope=Namespaced
+// +kubebuilder:resource:path=virtualmachineimages,scope=Namespaced,shortName=vmim
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="Current state of VirtualMachineImage"
 type VirtualMachineImage struct {
 	metav1.TypeMeta   `json:",inline"`

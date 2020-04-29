@@ -13,6 +13,8 @@ spec:
     kind: VirtualMachineImage
     listKind: VirtualMachineImageList
     plural: virtualmachineimages
+    shortNames:
+    - vmim
     singular: virtualmachineimage
   scope: Namespaced
   subresources:

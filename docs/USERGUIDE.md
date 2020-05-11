@@ -20,6 +20,10 @@ rook-ceph, kubevirt 가 설치 되어야 합니다.
 - [rook-ceph 설치 가이드](http://192.168.1.150:10080/ck3-4/hypercloud-rook-ceph)
 - [kubevirt 설치 가이드](http://192.168.1.150:10080/hypercloud/hypercloud/wikis/KubeVirt-InstallerGuide)
 
+snapshot provision이 가능한 csi plugin 과 StorageClass, SnapshotClass 가 필요합니다. rook-ceph rbd plugin을 사용할 경우, 참고할 수 있는 배포 yaml은 아래와 같습니다.
+- [StorageClass 생성 yaml](https://github.com/rook/rook/blob/master/cluster/examples/kubernetes/ceph/csi/rbd/storageclass.yaml)
+- [SnapshotClass 생성 yaml](https://github.com/rook/rook/blob/master/cluster/examples/kubernetes/ceph/csi/rbd/snapshotclass.yaml)
+
 <br>
 
 # 설치방법

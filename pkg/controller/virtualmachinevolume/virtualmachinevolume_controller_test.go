@@ -1,41 +1,52 @@
 package virtualmachinevolume
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	img "kubevirt-image-service/pkg/controller/virtualmachineimage"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("getImage", func() {
-	It("Should get a virtualMachineImage, if it exists", func() {
+var _ = Describe("Volume reconcile loop", func() {
+	table.DescribeTable("Should reconcile volume status against volume pvc phases", func(expected hc.VirtualMachineVolumeState, pvcPhase corev1.PersistentVolumeClaimPhase) {
 		image := newImage()
-		r := newReconcileVolume(image)
-		imageFound, err := r.getImage()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(image.Spec).To(Equal(imageFound.Spec))
-	})
+		image.Status.State = hc.VirtualMachineImageStateAvailable
+		pvc := newPvc()
+		pvc.Status.Phase = pvcPhase
+		r := newReconcileVolume(newVolume(), image, pvc)
 
-	It("Should not get a virtualMachineImage, if it does not exists", func() {
-		r := newReconcileVolume()
-		_, err := r.getImage()
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		_, _ = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}})
+		vmv := &hc.VirtualMachineVolume{}
+		_ = r.client.Get(context.TODO(), types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}, vmv)
+		Expect(vmv.Status.State).To(Equal(expected))
+	},
+		table.Entry("should be available state when pvc is bound", hc.VirtualMachineVolumeStateAvailable, corev1.ClaimBound),
+		table.Entry("should be creating state when pvc is pending", hc.VirtualMachineVolumeStateCreating, corev1.ClaimPending),
+		table.Entry("should be error state when pvc is lost", hc.VirtualMachineVolumeStateError, corev1.ClaimLost),
+	)
+})
+
+var _ = Describe("Get volume", func() {
+	It("Should get a virtualMachineVolume with the NamespacedName", func() {
+		r := newReconcileVolume(newVolume())
+
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}, &hc.VirtualMachineVolume{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 })
 
 func newImage() *hc.VirtualMachineImage {
 	return &hc.VirtualMachineImage{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "VirtualMachineImage",
-			APIVersion: "hypercloud.tmaxanc.com/v1alpha1",
-		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myvmi",
 			Namespace: "mynamespace",
@@ -58,18 +69,14 @@ func newImage() *hc.VirtualMachineImage {
 	}
 }
 
-func newPvc(volumeName string) *corev1.PersistentVolumeClaim {
+func newPvc() *corev1.PersistentVolumeClaim {
 	apiGroup := "snapshot.storage.k8s.io"
 	storageClass := "rook-ceph-block"
 	volumeMode := corev1.PersistentVolumeBlock
 
 	return &corev1.PersistentVolumeClaim{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1",
-		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      GetRestoredPvcName(volumeName),
+			Name:      GetVolumePvcName("myvmv"),
 			Namespace: "mynamespace",
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -94,10 +101,6 @@ func newPvc(volumeName string) *corev1.PersistentVolumeClaim {
 
 func newVolume() *hc.VirtualMachineVolume {
 	return &hc.VirtualMachineVolume{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "VirtualMachineVolume",
-			APIVersion: "hypercloud.tmaxanc.com/v1alpha1",
-		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myvmv",
 			Namespace: "mynamespace",

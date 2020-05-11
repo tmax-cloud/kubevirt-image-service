@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"kubevirt-image-service/pkg/apis"
 	"kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	volume "kubevirt-image-service/pkg/controller/virtualmachinevolume"
 	"testing"
 	"time"
 )
@@ -20,12 +21,10 @@ func virtualMachineVolumeTest(t *testing.T, ctx *framework.Context, cleanupOptio
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	vmv := &v1alpha1.VirtualMachineVolume{}
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, vmv); err != nil {
 		t.Fatal(err)
 	}
-
 	vmv = &v1alpha1.VirtualMachineVolume{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "VirtualMachineVolume",
@@ -47,13 +46,20 @@ func virtualMachineVolumeTest(t *testing.T, ctx *framework.Context, cleanupOptio
 
 	f := framework.Global
 	if err := f.Client.Create(context.Background(), vmv, cleanupOptions); err != nil {
-		t.Log(err)
 		t.Fatal(err)
 	}
 
 	if err := waitForVmv(t, ns, "testvmv", retryInterval, timeout); err != nil {
-		t.Log(err)
 		t.Fatal(err)
+	}
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := f.Client.Get(context.Background(), types.NamespacedName{Namespace: ns, Name: volume.GetVolumePvcName("testvmv")}, pvc); err != nil {
+		t.Fatal(err)
+	}
+	if pvc.Status.Phase == corev1.ClaimBound {
+		t.Logf("Vmv pvc available (%s/%s)\n", ns, volume.GetVolumePvcName("testvmv"))
+	} else {
+		t.Fatalf("Vmv pvc is not available (%s/%s)\n", ns, volume.GetVolumePvcName("testvmv"))
 	}
 }
 
@@ -61,14 +67,13 @@ func waitForVmv(t *testing.T, namespace, name string, retryInterval, timeout tim
 	f := framework.Global
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		vmv := &v1alpha1.VirtualMachineVolume{}
-		if err := f.Client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, vmv); err != nil {
+		if err = f.Client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, vmv); err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for creating vmv: %s in Namespace: %s \n", name, namespace)
 				return false, nil
 			}
 			return false, err
 		}
-
 		if vmv.Status.State == v1alpha1.VirtualMachineVolumeStateAvailable {
 			return true, nil
 		}

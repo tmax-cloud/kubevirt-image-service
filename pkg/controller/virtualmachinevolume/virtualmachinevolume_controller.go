@@ -87,6 +87,13 @@ func (r *ReconcileVirtualMachineVolume) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	// Set default state
+	if r.volume.Status.State == "" {
+		if err := r.updateState(hc.VirtualMachineVolumeStateCreating); err != nil {
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
 	ret, err := r.volumeReconcile()
 	if err != nil {
 		if err2 := r.updateState(hc.VirtualMachineVolumeStateError); err2 != nil {
@@ -111,8 +118,8 @@ func (r *ReconcileVirtualMachineVolume) fetchVolumeFromName(namespacedName types
 
 func (r *ReconcileVirtualMachineVolume) volumeReconcile() (reconcile.Result, error) {
 	// Get virtualMachineImage
-	image, err := r.getImage()
-	if err != nil {
+	image := &hc.VirtualMachineImage{}
+	if err := r.client.Get(context.Background(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
 		if errors.IsNotFound(err) {
 			r.log.Info("VirtualMachineImage is not exists")
 			return reconcile.Result{}, goerrors.New("VirtualMachineImage is not exists")
@@ -127,36 +134,41 @@ func (r *ReconcileVirtualMachineVolume) volumeReconcile() (reconcile.Result, err
 	}
 
 	// Check pvc size
-	originalSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
-	requestedSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
+	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
 
-	// Restored pvc size should not be smaller than original pvc size
-	if originalSize.Value() > requestedSize.Value() {
-		r.log.Info("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size", "VirtualMachineImage size is", originalSize, "Requested size is", requestedSize)
-		return reconcile.Result{}, errors.NewBadRequest("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
+	// Volume pvc size should not be smaller than image pvc size
+	if volumePvcSize.Value() < imagePvcSize.Value() {
+		r.log.Info("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size", "VirtualMachineImage size is", imagePvcSize, "Requested size is", volumePvcSize)
+		return reconcile.Result{}, goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
 	}
 
 	// Get virtualMachineVolume pvc
-	if _, err := r.getRestoredPvc(); err != nil {
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := r.client.Get(context.Background(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+		Namespace: r.volume.Namespace}, pvc); err != nil {
 		if !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
-
 		// VirtualMachineVolume pvc is not found. Creating a new one.
-		if err := r.updateState(hc.VirtualMachineVolumeStateCreating); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		_, err := r.restorePvc(image)
+		_, err := r.createVolumePvc(image)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		// Restoring successful. Change state to Available
-		if err := r.updateState(hc.VirtualMachineVolumeStateAvailable); err != nil {
-			return reconcile.Result{}, err
+	} else {
+		// Check volume pvc status
+		if pvc.Status.Phase == corev1.ClaimBound {
+			// Restoring successful. Change state to Available
+			if r.volume.Status.State != hc.VirtualMachineVolumeStateAvailable {
+				if err := r.updateState(hc.VirtualMachineVolumeStateAvailable); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+		} else if pvc.Status.Phase == corev1.ClaimLost {
+			return reconcile.Result{}, goerrors.New("PVC is lost")
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -168,13 +180,4 @@ func (r *ReconcileVirtualMachineVolume) updateState(state hc.VirtualMachineVolum
 		r.log.Info("Failed to update virtual machine volume state")
 	}
 	return err
-}
-
-func (r *ReconcileVirtualMachineVolume) getImage() (*hc.VirtualMachineImage, error) {
-	image := &hc.VirtualMachineImage{}
-	err := r.client.Get(context.Background(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image)
-	if err != nil {
-		return nil, err
-	}
-	return image, err
 }

@@ -4,23 +4,13 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	img "kubevirt-image-service/pkg/controller/virtualmachineimage"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *ReconcileVirtualMachineVolume) getRestoredPvc() (*corev1.PersistentVolumeClaim, error) {
-	pvc := &corev1.PersistentVolumeClaim{}
-	if err := r.client.Get(context.Background(), types.NamespacedName{Name: GetRestoredPvcName(r.volume.Name),
-		Namespace: r.volume.Namespace}, pvc); err != nil {
-		return nil, err
-	}
-	return pvc, nil
-}
-
-// restorePvc restores pvc from volumeSnapShot created by virtualMachineImage
-func (r *ReconcileVirtualMachineVolume) restorePvc(image *hc.VirtualMachineImage) (*corev1.PersistentVolumeClaim, error) {
+// createVolumePvc creates pvc from volumeSnapShot created by virtualMachineImage
+func (r *ReconcileVirtualMachineVolume) createVolumePvc(image *hc.VirtualMachineImage) (*corev1.PersistentVolumeClaim, error) {
 	apiGroup := "snapshot.storage.k8s.io"
 	pvc := &corev1.PersistentVolumeClaim{
 		TypeMeta: v1.TypeMeta{
@@ -28,7 +18,7 @@ func (r *ReconcileVirtualMachineVolume) restorePvc(image *hc.VirtualMachineImage
 			APIVersion: "v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      GetRestoredPvcName(r.volume.Name),
+			Name:      GetVolumePvcName(r.volume.Name),
 			Namespace: r.volume.Namespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -55,7 +45,7 @@ func (r *ReconcileVirtualMachineVolume) restorePvc(image *hc.VirtualMachineImage
 	return pvc, nil
 }
 
-// GetRestoredPvcName gets the name of the restored pvc from volumeSnapShot created by virtualMachineVolume
-func GetRestoredPvcName(volumeName string) string {
+// GetVolumePvcName gets the name of the pvc created by virtualMachineVolume
+func GetVolumePvcName(volumeName string) string {
 	return volumeName + "-vmv-pvc"
 }

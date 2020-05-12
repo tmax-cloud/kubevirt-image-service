@@ -9,6 +9,8 @@ spec:
   # 스냅샷 프로비저닝을 위해 사용 할 CSI를 담은 객체(snapshotClass)의 이름
   snapshotClassName: csi-rbdplugin-snapclass
   pvc:
+    # VirtualMachineImage 생성 시 volumeMode는 필수 값이고 Block만 가능
+    volumeMode: Block
     accessModes:
     - ReadWriteOnce
     resources:

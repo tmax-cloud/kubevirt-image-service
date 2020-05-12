@@ -16,34 +16,7 @@ import (
 
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the PVC, if pvc not exists", func() {
-		volumeMode := corev1.PersistentVolumeBlock
-		storageClassName := "rook-ceph-block"
-		vmi := &hc.VirtualMachineImage{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "VirtualMachineImage",
-				APIVersion: "hypercloud.tmaxanc.com/v1alpha1",
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "testvmi",
-				Namespace: "default",
-			},
-			Spec: hc.VirtualMachineImageSpec{
-				Source: hc.VirtualMachineImageSource{
-					HTTP: "https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img",
-				},
-				PVC: corev1.PersistentVolumeClaimSpec{
-					VolumeMode:  &volumeMode,
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.ResourceRequirements{
-						Requests: map[corev1.ResourceName]resource.Quantity{
-							corev1.ResourceStorage: resource.MustParse("3Gi"),
-						},
-					},
-					StorageClassName: &storageClassName,
-				},
-				SnapshotClassName: "csi-rbdplugin-snapclass",
-			},
-		}
+		vmi := newVmi()
 
 		reconciler := createFakeReconcileVmi(vmi)
 		By("Running Reconcile")
@@ -64,7 +37,7 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 var _ = Describe("fetchVmiFromName", func() {
 	It("Should get the vmi", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateAvailable)
+		vmi := newVmi()
 		r := createFakeReconcileVmi(vmi)
 
 		err := r.fetchVmiFromName(types.NamespacedName{Name: "testvmi", Namespace: "default"})
@@ -74,7 +47,7 @@ var _ = Describe("fetchVmiFromName", func() {
 
 var _ = Describe("updateState and isState", func() {
 	It("Should check updated state", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateAvailable)
+		vmi := newVmi()
 		r := createFakeReconcileVmi(vmi)
 
 		err := r.updateState(hc.VirtualMachineImageStateImporting)
@@ -85,9 +58,31 @@ var _ = Describe("updateState and isState", func() {
 	})
 })
 
+var _ = Describe("checkVolumeMode", func() {
+	It("Should check if volumeMode is 'Block'", func() {
+		r := createFakeReconcileVmi()
+
+		volumeMode := corev1.PersistentVolumeBlock
+		r.vmi.Spec.PVC.VolumeMode = &volumeMode
+
+		err := r.checkVolumeMode()
+		Expect(err).ToNot(HaveOccurred())
+	})
+})
+
+var _ = Describe("checkVolumeMode", func() {
+	It("Should check if volumeMode is not null", func() {
+		r := createFakeReconcileVmi()
+
+		err := r.checkVolumeMode()
+		Expect(err).To(HaveOccurred())
+	})
+})
+
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the scratch pvc and importer pod, if state of vmi is 'Importing'", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateImporting)
+		vmi := newVmi()
+		vmi.Status.State = hc.VirtualMachineImageStateImporting
 		pvc := createPvc(GetPvcName("testvmi", false))
 
 		r := createFakeReconcileVmi(vmi, pvc)
@@ -113,7 +108,8 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should delete the scratch pvc and importer pod, if state of vmi is 'Importing' and state of the pod is 'Completed'", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateImporting)
+		vmi := newVmi()
+		vmi.Status.State = hc.VirtualMachineImageStateImporting
 		pvc := createPvc(GetPvcName("testvmi", false))
 		scratchPvc := createPvc(GetPvcName("testvmi", true))
 		ip := &corev1.Pod{
@@ -162,7 +158,8 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the snapshot, if state of vmi is 'Snapshotting'", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateSnapshotting)
+		vmi := newVmi()
+		vmi.Status.State = hc.VirtualMachineImageStateSnapshotting
 		pvc := createPvc(GetPvcName("testvmi", false))
 
 		r := createFakeReconcileVmi(vmi, pvc)
@@ -184,7 +181,8 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should get the pvc and snapshot, if state of vmi is 'Available'", func() {
-		vmi := createVmiWithState(hc.VirtualMachineImageStateAvailable)
+		vmi := newVmi()
+		vmi.Status.State = hc.VirtualMachineImageStateAvailable
 		pvc := createPvc(GetPvcName("testvmi", false))
 		snapshotClassName := "csi-rbdplugin-snapclass"
 		snapshot := &snapshotv1alpha1.VolumeSnapshot{
@@ -222,8 +220,9 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	})
 })
 
-func createVmiWithState(state hc.VirtualMachineImageState) *hc.VirtualMachineImage {
-	storageClassName := "rook-ceph-block"
+func newVmi() *hc.VirtualMachineImage {
+	storageClassName := blockStorageClassName
+	volumeMode := corev1.PersistentVolumeBlock
 	vmi := &hc.VirtualMachineImage{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "VirtualMachineImage",
@@ -238,6 +237,7 @@ func createVmiWithState(state hc.VirtualMachineImageState) *hc.VirtualMachineIma
 				HTTP: "https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img",
 			},
 			PVC: corev1.PersistentVolumeClaimSpec{
+				VolumeMode:  &volumeMode,
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				Resources: corev1.ResourceRequirements{
 					Requests: map[corev1.ResourceName]resource.Quantity{
@@ -248,7 +248,6 @@ func createVmiWithState(state hc.VirtualMachineImageState) *hc.VirtualMachineIma
 			},
 			SnapshotClassName: "csi-rbdplugin-snapclass",
 		},
-		Status: hc.VirtualMachineImageStatus{State: state},
 	}
 	return vmi
 }

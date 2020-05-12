@@ -2,6 +2,7 @@ package virtualmachineimage
 
 import (
 	"context"
+	goerrors "errors"
 	"github.com/go-logr/logr"
 	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -104,6 +105,14 @@ func (r *ReconcileVirtualMachineImage) isState(state hc.VirtualMachineImageState
 	return r.vmi.Status.State == state
 }
 
+func (r *ReconcileVirtualMachineImage) checkVolumeMode() error {
+	volumeMode := corev1.PersistentVolumeBlock
+	if r.vmi.Spec.PVC.VolumeMode == nil || *r.vmi.Spec.PVC.VolumeMode != volumeMode {
+		return goerrors.New("VolumeMode in pvc is invalid. Only 'Block' can be used")
+	}
+	return nil
+}
+
 // Reconcile reads that state of the cluster for a VirtualMachineImage object and makes changes based on the state read
 func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	r.log = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -115,6 +124,13 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+
+	if err := r.checkVolumeMode(); err != nil {
+		if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
+			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
 	}

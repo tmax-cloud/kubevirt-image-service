@@ -28,6 +28,7 @@ func virtualMachinImageTest(t *testing.T, ctx *framework.Context, cleanupOptions
 	}
 
 	storageClassName := "rook-ceph-block"
+	volumeMode := corev1.PersistentVolumeBlock
 	vmi := &v1alpha1.VirtualMachineImage{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "VirtualMachineImage",
@@ -42,6 +43,7 @@ func virtualMachinImageTest(t *testing.T, ctx *framework.Context, cleanupOptions
 				HTTP: "https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img",
 			},
 			PVC: corev1.PersistentVolumeClaimSpec{
+				VolumeMode: &volumeMode,
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				Resources: corev1.ResourceRequirements{
 					Requests: map[corev1.ResourceName]resource.Quantity{

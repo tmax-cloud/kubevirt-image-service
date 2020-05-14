@@ -5,23 +5,20 @@ go 1.13
 require (
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.4.0 // indirect
-	github.com/golangci/golangci-lint v1.25.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/improbable-eng/thanos v0.3.2 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/kubernetes-csi/external-snapshotter v1.2.2
-	github.com/lib/pq v1.2.0 // indirect
-	github.com/mailru/easyjson v0.7.0 // indirect
-	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
-	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
-	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible // indirect
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.5.1 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f // indirect
 	golang.org/x/tools v0.0.0-20200423205358-59e73619c742 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible

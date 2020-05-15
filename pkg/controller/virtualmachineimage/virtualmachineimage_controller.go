@@ -113,6 +113,25 @@ func (r *ReconcileVirtualMachineImage) checkVolumeMode() error {
 	return nil
 }
 
+func (r *ReconcileVirtualMachineImage) checkAndDeleteSnapshot() error {
+	if _, err := r.getSnapshot(); err != nil {
+		if !errors.IsNotFound(err) {
+			if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
+				return err2
+			}
+			return err
+		}
+	} else {
+		if err = r.deleteSnapshot(); err != nil {
+			if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
+				return err2
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 // Reconcile reads that state of the cluster for a VirtualMachineImage object and makes changes based on the state read
 func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	r.log = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -149,7 +168,12 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 			}
 			return reconcile.Result{}, err
 		}
-		// PVC 생성 완료, 다음 상태인 Importing으로 변경
+		// pvc 생성 완료, snapshot 존재 여부 체크
+		// pvc 가 새로 생성 되었 는데 snapshot 이 있는 경우, 해당 snapshot 은 이미 삭제 된 pvc 를 보고 있기 때문에 snapshot 을 삭제 하기 위해 snapshot 존재여부 체크 필요
+		if err := r.checkAndDeleteSnapshot(); err != nil {
+			return reconcile.Result{}, err
+		}
+		// 다음 상태인 Importing으로 변경
 		if err := r.updateState(hc.VirtualMachineImageStateImporting); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -220,38 +244,36 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, nil
 	}
 
-	// 스냅샷을 찍을 필요가 있을 때는 pvc를 새로 만들었을 때나 스냅샷이 지워졌을 때
-	if r.isState(hc.VirtualMachineImageStateSnapshotting) || r.isState(hc.VirtualMachineImageStateAvailable) {
-		if _, err := r.getSnapshot(); err != nil {
-			if !errors.IsNotFound(err) {
-				if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
-					return reconcile.Result{}, err2
-				}
-				return reconcile.Result{}, err
+	// snapshot이 없는 경우, snapshot을 생성한다.
+	snapshot, err := r.getSnapshot()
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
+				return reconcile.Result{}, err2
 			}
-			// 스냅샷이 없으므로 생성
-			if _, err = r.createSnapshot(); err != nil {
-				if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
-					return reconcile.Result{}, err2
-				}
-				return reconcile.Result{}, err
-			}
-			// 상태를 정상 상태로 변경
-			if err := r.updateState(hc.VirtualMachineImageStateAvailable); err != nil {
-				return reconcile.Result{}, err
-			}
+			return reconcile.Result{}, err
 		}
-		// 스냅샷이 있는 경우, 하지만 VirtualMachineImageStateSnapshotting 상태는 이전 스냅샷을 삭제하고 다시 만들어야 한다
-		// PVC가 삭제된 경우 다시 임포트를 할 때 기존 pvc를 보고 있는 스냅샷이 있기 때문에 삭제한다.
-		if r.isState(hc.VirtualMachineImageStateSnapshotting) {
-			if err := r.deleteSnapshot(); err != nil {
-				if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
-					return reconcile.Result{}, err2
-				}
-				return reconcile.Result{}, err
+		// 스냅샷이 없으므로 생성
+		if _, err = r.createSnapshot(); err != nil {
+			if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
+				return reconcile.Result{}, err2
 			}
-			// 삭제에 성공했으면 스냅샷을 다시 생성할 수 있도록 requeue 한다.
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{}, err
+		}
+		// snapshot 이 생성 될 때 까지 대기 하기 위해 return, 생성 완료 되면 조정루프 들어 온다.
+		return reconcile.Result{}, nil
+	}
+	// snapshot이 있는 경우, snapshot의 상태에 따라 vmim 상태 변경 한다.
+	if snapshot.Status.ReadyToUse {
+		if err2 := r.updateState(hc.VirtualMachineImageStateAvailable); err2 != nil {
+			return reconcile.Result{}, err2
+		}
+	} else {
+		// snapshot이 ReadyToUse가 아닐 경우, snapshot이 생성 중일 수 있으므로 Error를 한번 더 체크하여 상태를 결정한다.
+		if snapshot.Status.Error != nil {
+			if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
+				return reconcile.Result{}, err2
+			}
 		}
 	}
 

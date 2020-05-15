@@ -79,6 +79,22 @@ var _ = Describe("checkVolumeMode", func() {
 	})
 })
 
+var _ = Describe("checkAndDeleteSnapshot", func() {
+	It("Should delete snapshot, if snapshot exists", func() {
+		vmi := newVmi()
+		snapshot := newSnapshot()
+
+		r := createFakeReconcileVmi(vmi, snapshot)
+
+		err := r.checkAndDeleteSnapshot()
+		Expect(err).ToNot(HaveOccurred())
+
+		snapshotFound := &snapshotv1alpha1.VolumeSnapshot{}
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetSnapshotName(r.vmi.Name), Namespace: "default"}, snapshotFound)
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+	})
+})
+
 var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the scratch pvc and importer pod, if state of vmi is 'Importing'", func() {
 		vmi := newVmi()
@@ -271,3 +287,22 @@ func createPvc(name string) *corev1.PersistentVolumeClaim {
 	}
 	return pvc
 }
+
+func newSnapshot() *snapshotv1alpha1.VolumeSnapshot {
+	snapshotClassName := "csi-rbdplugin-snapclass"
+	return &snapshotv1alpha1.VolumeSnapshot{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      GetSnapshotName("testvmi"),
+			Namespace: "default",
+		},
+		Spec: snapshotv1alpha1.VolumeSnapshotSpec{
+			Source: &corev1.TypedLocalObjectReference{
+				Kind: "PersistentVolumeClaim",
+				Name: GetPvcName("testvmi", false),
+			},
+			SnapshotContentName:     "",
+			VolumeSnapshotClassName: &snapshotClassName,
+		},
+	}
+}
+

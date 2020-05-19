@@ -79,14 +79,14 @@ var _ = Describe("checkVolumeMode", func() {
 	})
 })
 
-var _ = Describe("checkAndDeleteSnapshot", func() {
+var _ = Describe("deleteSnapshotIfExists", func() {
 	It("Should delete snapshot, if snapshot exists", func() {
 		vmi := newVmi()
 		snapshot := newSnapshot()
 
 		r := createFakeReconcileVmi(vmi, snapshot)
 
-		err := r.checkAndDeleteSnapshot()
+		err := r.deleteSnapshotIfExists()
 		Expect(err).ToNot(HaveOccurred())
 
 		snapshotFound := &snapshotv1alpha1.VolumeSnapshot{}
@@ -99,16 +99,11 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the scratch pvc and importer pod, if state of vmi is 'Importing'", func() {
 		vmi := newVmi()
 		vmi.Status.State = hc.VirtualMachineImageStateImporting
-		pvc := createPvc(GetPvcName("testvmi", false))
+		pvc := newPvc(GetPvcName("testvmi", false))
 
 		r := createFakeReconcileVmi(vmi, pvc)
 		By("Running Reconcile")
-		vmiFound := &hc.VirtualMachineImage{}
-		err := r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi", Namespace: "default"}, vmiFound)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiFound.Status.State).To(Equal(hc.VirtualMachineImageStateImporting))
-
-		_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking scratch pvc and importer pod have been created")
@@ -126,13 +121,9 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should delete the scratch pvc and importer pod, if state of vmi is 'Importing' and state of the pod is 'Completed'", func() {
 		vmi := newVmi()
 		vmi.Status.State = hc.VirtualMachineImageStateImporting
-		pvc := createPvc(GetPvcName("testvmi", false))
-		scratchPvc := createPvc(GetPvcName("testvmi", true))
+		pvc := newPvc(GetPvcName("testvmi", false))
+		scratchPvc := newPvc(GetPvcName("testvmi", true))
 		ip := &corev1.Pod{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
 			ObjectMeta: v1.ObjectMeta{
 				Name:      GetImporterPodName("testvmi"),
 				Namespace: "default",
@@ -153,12 +144,7 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 
 		r := createFakeReconcileVmi(vmi, pvc, scratchPvc, ip)
 		By("Running Reconcile")
-		vmiFound := &hc.VirtualMachineImage{}
-		err := r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi", Namespace: "default"}, vmiFound)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiFound.Status.State).To(Equal(hc.VirtualMachineImageStateImporting))
-
-		_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking scratch pvc and importer pod have been deleted")
@@ -176,16 +162,11 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should create the snapshot, if state of vmi is 'Snapshotting'", func() {
 		vmi := newVmi()
 		vmi.Status.State = hc.VirtualMachineImageStateSnapshotting
-		pvc := createPvc(GetPvcName("testvmi", false))
+		pvc := newPvc(GetPvcName("testvmi", false))
 
 		r := createFakeReconcileVmi(vmi, pvc)
 		By("Running Reconcile")
-		vmiFound := &hc.VirtualMachineImage{}
-		err := r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi", Namespace: "default"}, vmiFound)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiFound.Status.State).To(Equal(hc.VirtualMachineImageStateSnapshotting))
-
-		_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking snapshot has been created")
@@ -199,30 +180,12 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 	It("Should get the pvc and snapshot, if state of vmi is 'Available'", func() {
 		vmi := newVmi()
 		vmi.Status.State = hc.VirtualMachineImageStateAvailable
-		pvc := createPvc(GetPvcName("testvmi", false))
-		snapshotClassName := "csi-rbdplugin-snapclass"
-		snapshot := &snapshotv1alpha1.VolumeSnapshot{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      GetSnapshotName("testvmi"),
-				Namespace: "default",
-			},
-			Spec: snapshotv1alpha1.VolumeSnapshotSpec{
-				Source: &corev1.TypedLocalObjectReference{
-					Kind: "PersistentVolumeClaim",
-					Name: GetPvcName("testvmi", false),
-				},
-				SnapshotContentName:     "",
-				VolumeSnapshotClassName: &snapshotClassName,
-			},
-		}
+		pvc := newPvc(GetPvcName("testvmi", false))
+		snapshot := newSnapshot()
 
 		r := createFakeReconcileVmi(vmi, pvc, snapshot)
 		By("Running Reconcile")
-		vmiFound := &hc.VirtualMachineImage{}
-		err := r.client.Get(context.Background(), types.NamespacedName{Name: "testvmi", Namespace: "default"}, vmiFound)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "testvmi", Namespace: "default"}})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking if pvc and snapshot exist")
@@ -239,11 +202,7 @@ var _ = Describe("VirtualMachineImporter reconcile loop", func() {
 func newVmi() *hc.VirtualMachineImage {
 	storageClassName := blockStorageClassName
 	volumeMode := corev1.PersistentVolumeBlock
-	vmi := &hc.VirtualMachineImage{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "VirtualMachineImage",
-			APIVersion: "hypercloud.tmaxanc.com/v1alpha1",
-		},
+	return &hc.VirtualMachineImage{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "testvmi",
 			Namespace: "default",
@@ -265,12 +224,11 @@ func newVmi() *hc.VirtualMachineImage {
 			SnapshotClassName: "csi-rbdplugin-snapclass",
 		},
 	}
-	return vmi
 }
 
-func createPvc(name string) *corev1.PersistentVolumeClaim {
+func newPvc(name string) *corev1.PersistentVolumeClaim {
 	storageClassName := blockStorageClassName
-	pvc := &corev1.PersistentVolumeClaim{
+	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -285,7 +243,6 @@ func createPvc(name string) *corev1.PersistentVolumeClaim {
 			StorageClassName: &storageClassName,
 		},
 	}
-	return pvc
 }
 
 func newSnapshot() *snapshotv1alpha1.VolumeSnapshot {
@@ -305,4 +262,3 @@ func newSnapshot() *snapshotv1alpha1.VolumeSnapshot {
 		},
 	}
 }
-

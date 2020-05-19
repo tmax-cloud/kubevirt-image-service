@@ -5,15 +5,6 @@ import (
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
 	"testing"
-	"time"
-)
-
-const (
-	retryInterval        = time.Second * 5
-	timeout              = time.Second * 300
-	cleanupRetryInterval = time.Second * 1
-	cleanupTimeout       = time.Second * 60
-	operatorName         = "kubevirt-image-service"
 )
 
 func TestMain(m *testing.M) {
@@ -26,7 +17,7 @@ func TestKubevirtImageService(t *testing.T) {
 	deployResources(t, ctx)
 	waitForOperator(t, ctx)
 
-	virtualMachinImageTest(t, ctx, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}, retryInterval, timeout)
+	virtualMachineImageTest(t, ctx)
 	virtualMachineVolumeTest(t, ctx, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}, retryInterval, timeout)
 
 	// Cleanup only when all tests are succeed for debugging

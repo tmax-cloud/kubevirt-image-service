@@ -113,19 +113,13 @@ func (r *ReconcileVirtualMachineImage) checkVolumeMode() error {
 	return nil
 }
 
-func (r *ReconcileVirtualMachineImage) checkAndDeleteSnapshot() error {
+func (r *ReconcileVirtualMachineImage) deleteSnapshotIfExists() error {
 	if _, err := r.getSnapshot(); err != nil {
 		if !errors.IsNotFound(err) {
-			if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
-				return err2
-			}
 			return err
 		}
 	} else {
-		if err = r.deleteSnapshot(); err != nil {
-			if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
-				return err2
-			}
+		if err := r.deleteSnapshot(); err != nil {
 			return err
 		}
 	}
@@ -170,11 +164,14 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		}
 		// pvc 생성 완료, snapshot 존재 여부 체크
 		// pvc 가 새로 생성 되었 는데 snapshot 이 있는 경우, 해당 snapshot 은 이미 삭제 된 pvc 를 보고 있기 때문에 snapshot 을 삭제 하기 위해 snapshot 존재여부 체크 필요
-		if err := r.checkAndDeleteSnapshot(); err != nil {
+		if err := r.deleteSnapshotIfExists(); err != nil {
 			return reconcile.Result{}, err
 		}
 		// 다음 상태인 Importing으로 변경
 		if err := r.updateState(hc.VirtualMachineImageStateImporting); err != nil {
+			if err2 := r.updateState(hc.VirtualMachineImageStateError); err2 != nil {
+				return reconcile.Result{}, err2
+			}
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -263,17 +260,15 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		// snapshot 이 생성 될 때 까지 대기 하기 위해 return, 생성 완료 되면 조정루프 들어 온다.
 		return reconcile.Result{}, nil
 	}
-	// snapshot이 있는 경우, snapshot의 상태에 따라 vmim 상태 변경 한다.
+	// snapshot이 있는 경우, snapshot의 ReadyToUse에 따라 vmim 상태 변경 한다.
+	// snapshot이 ReadyToUse가 아닐 경우, snapshot이 생성 중일 수 있으므로 Error를 한번 더 체크하여 상태를 결정한다.
 	if snapshot.Status.ReadyToUse {
-		if err2 := r.updateState(hc.VirtualMachineImageStateAvailable); err2 != nil {
-			return reconcile.Result{}, err2
+		if err := r.updateState(hc.VirtualMachineImageStateAvailable); err != nil {
+			return reconcile.Result{}, err
 		}
-	} else {
-		// snapshot이 ReadyToUse가 아닐 경우, snapshot이 생성 중일 수 있으므로 Error를 한번 더 체크하여 상태를 결정한다.
-		if snapshot.Status.Error != nil {
-			if err2 := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err2 != nil {
-				return reconcile.Result{}, err2
-			}
+	} else if snapshot.Status.Error != nil {
+		if err := r.updateState(hc.VirtualMachineImageStateSnapshottingError); err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 

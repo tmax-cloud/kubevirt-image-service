@@ -13,34 +13,39 @@ func TestMain(m *testing.M) {
 
 func TestKubevirtImageService(t *testing.T) {
 	ctx := framework.NewContext(t)
-
-	deployResources(t, ctx)
-	waitForOperator(t, ctx)
-
-	virtualMachineImageTest(t, ctx)
+	defer func() {
+		ctx.Cleanup()
+	}()
+	if err := deployResources(t, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitForOperator(t, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := virtualMachineImageTest(t, ctx); err != nil {
+		t.Fatal(err)
+	}
 	virtualMachineVolumeTest(t, ctx)
-
-	// Cleanup only when all tests are succeed for debugging
-	ctx.Cleanup()
 }
 
-func deployResources(t *testing.T, ctx *framework.Context) {
+func deployResources(t *testing.T, ctx *framework.Context) error {
 	t.Log("Deploying cluster resources...")
-	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	err := ctx.InitializeClusterResources(&cleanupOptions)
 	if err != nil {
-		t.Fatalf("Failed to initialize cluster resources: %v", err)
+		return err
 	}
 	t.Log("Initialized cluster resources")
+	return nil
 }
 
-func waitForOperator(t *testing.T, ctx *framework.Context) {
+func waitForOperator(t *testing.T, ctx *framework.Context) error {
 	t.Log("Waiting for operator...")
-	f := framework.Global
 	operatorNamespace, err := ctx.GetOperatorNamespace()
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if err := e2eutil.WaitForOperatorDeployment(t, f.KubeClient, operatorNamespace, operatorName, 3, retryInterval, timeout); err != nil {
-		t.Fatal(err)
+	if err := e2eutil.WaitForOperatorDeployment(t, framework.Global.KubeClient, operatorNamespace, operatorName, 3, retryInterval, timeout); err != nil {
+		return err
 	}
+	return nil
 }

@@ -180,6 +180,11 @@ spec:
         status:
           description: VirtualMachineImageStatus defines the observed state of VirtualMachineImage
           properties:
+            errorMessage:
+              description: Human-readable message indicating details about last transition.
+              type: string
+            readyToUse:
+              type: boolean
             state:
               description: State is the current state of VirtualMachineImage
               type: string

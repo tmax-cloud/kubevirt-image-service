@@ -6,153 +6,193 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 )
 
-const blockStorageClassName = "rook-ceph-block"
+// 번호		pvc
+// 1		X
+// 2		O
+var _ = Describe("syncPvc", func() {
+	Context("1. with no pvc", func() {
+		r := createFakeReconcileVmi()
+		err := r.syncPvc()
 
-var _ = Describe("getPvc", func() {
-	It("Should get the pvc, if vmi has a pvc", func() {
-		r, pvc := createFakeReconcileVmiWithPvc()
-		err := r.getPvc(false)
-		Expect(err).ToNot(HaveOccurred())
-
-		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
-		Expect(errors.IsNotFound(err)).To(BeFalse())
-
-		Expect(pvcFound.Spec).To(Equal(pvc.Spec))
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should create a pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetPvcNameFromVmiName(r.vmi.Name)}, pvc)
+			Expect(err).Should(BeNil())
+		})
+		It("Should update state to creating", func() {
+			vmi := &hc.VirtualMachineImage{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: r.vmi.Name}, vmi)
+			Expect(err).Should(BeNil())
+			Expect(vmi.Status.State).Should(Equal(hc.VirtualMachineImageStateCreating))
+		})
+		It("Should update readyToUse to false", func() {
+			vmi := &hc.VirtualMachineImage{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: r.vmi.Name}, vmi)
+			Expect(err).Should(BeNil())
+			Expect(*vmi.Status.ReadyToUse).Should(BeFalse())
+		})
 	})
 
-	It("Should not get the pvc, if vmi has no pvc", func() {
+	Context("2. with pvc", func() {
 		r := createFakeReconcileVmi()
-		err := r.getPvc(false)
+		err := r.syncPvc()
 
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not delete the pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetPvcNameFromVmiName(r.vmi.Name)}, pvc)
+			Expect(err).Should(BeNil())
+		})
 	})
 })
 
-var _ = Describe("createPvc", func() {
-	It("Should success to create the pvc", func() {
-		volumeMode := corev1.PersistentVolumeBlock
-		storageClassName := blockStorageClassName
-		expectedPvcSpec := corev1.PersistentVolumeClaimSpec{
-			VolumeMode:  &volumeMode,
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceStorage: resource.MustParse("3Gi"),
-				},
-			},
-			StorageClassName: &storageClassName,
-		}
-
+// pvc가 없는 경우, pvc가 있는데 애노테이션이 없는 경우, pvc가 있고 애노테이션이 no인 경우, pvc가 있고 애노테이션이 yes인 경우
+// 번호		pvc		애노테이션
+// 1		X
+// 2		O		X
+// 3		O		no
+// 4		O		yes
+var _ = Describe("isPvcImported", func() {
+	Context("1. with no pvc", func() {
 		r := createFakeReconcileVmi()
-		err := r.createPvc(false)
-		Expect(err).ToNot(HaveOccurred())
+		_, found, err := r.isPvcImported()
 
-		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
-		Expect(errors.IsNotFound(err)).To(BeFalse())
-
-		Expect(pvcFound.Spec).To(Equal(expectedPvcSpec))
-	})
-})
-
-var _ = Describe("deletePvc", func() {
-	It("Should delete the pvc, if vmi has a pvc", func() {
-		r, _ := createFakeReconcileVmiWithPvc()
-
-		err := r.deletePvc(false)
-		Expect(err).ToNot(HaveOccurred())
-
-		pvcFound := &corev1.PersistentVolumeClaim{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetPvcName(r.vmi.Name, false), Namespace: "default"}, pvcFound)
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should return not found", func() {
+			Expect(found).Should(BeFalse())
+		})
 	})
 
-	It("Should not delete the pvc, if vmi has no pvc", func() {
-		r := createFakeReconcileVmi()
-		err := r.deletePvc(false)
-
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
-})
-
-var _ = Describe("GetPvcName", func() {
-	It("Should get the pvcName", func() {
-		expectedPvcName := "testvmi-image-pvc"
-
-		r := createFakeReconcileVmi()
-		pvcName := GetPvcName(r.vmi.Name, false)
-
-		Expect(pvcName).To(Equal(expectedPvcName))
-	})
-})
-
-var _ = Describe("newPvc", func() {
-	It("Should success to create the pvc", func() {
-		r := createFakeReconcileVmi()
-		pvc, err := r.newPvc(false)
-
-		isController := true
-		blockOwnerDeletion := true
-		volumeMode := corev1.PersistentVolumeBlock
-		storageClassName := blockStorageClassName
-		expectedPvc := &corev1.PersistentVolumeClaim{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "PersistentVolumeClaim",
-				APIVersion: "v1",
-			},
+	Context("2. with pvc without annotation", func() {
+		pvcWithoutAnnotation := &corev1.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      GetPvcName(r.vmi.Name, false),
-				Namespace: "default",
-				OwnerReferences: []v1.OwnerReference{
-					{
-						APIVersion:         "hypercloud.tmaxanc.com/v1alpha1",
-						Kind:               "VirtualMachineImage",
-						Name:               "testvmi",
-						UID:                "",
-						Controller:         &isController,
-						BlockOwnerDeletion: &blockOwnerDeletion,
-					},
-				},
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				VolumeMode:  &volumeMode,
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-				Resources: corev1.ResourceRequirements{
-					Requests: map[corev1.ResourceName]resource.Quantity{
-						corev1.ResourceStorage: resource.MustParse("3Gi"),
-					},
-				},
-				StorageClassName: &storageClassName,
+				Name:        GetPvcNameFromVmiName(testVmiName),
+				Namespace:   testVmiNs,
+				Annotations: nil,
 			},
 		}
+		r := createFakeReconcileVmi(pvcWithoutAnnotation)
+		_, _, err := r.isPvcImported()
 
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pvc).To(Equal(expectedPvc))
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+
+	Context("3. with pvc with annotation(imported=no)", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc)
+		imported, found, err := r.isPvcImported()
+
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should return found", func() {
+			Expect(found).Should(BeTrue())
+		})
+		It("Should return imported false", func() {
+			Expect(imported).Should(BeFalse())
+		})
+	})
+
+	Context("4. with pvc with annotation(imported=yes)", func() {
+		importedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "yes",
+				},
+			},
+		}
+		r := createFakeReconcileVmi(importedPvc)
+		imported, found, err := r.isPvcImported()
+
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should return found", func() {
+			Expect(found).Should(BeTrue())
+		})
+		It("Should return imported true", func() {
+			Expect(imported).Should(BeTrue())
+		})
 	})
 })
 
-func createFakeReconcileVmiWithPvc() (*ReconcileVirtualMachineImage, *corev1.PersistentVolumeClaim) {
-	storageClassName := blockStorageClassName
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      GetPvcName("testvmi", false),
-			Namespace: "default",
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceStorage: resource.MustParse("3Gi"),
-				},
+// 번호		pvc		updateTo
+// 1		X
+// 2		O		yes
+// 3		O		no
+var _ = Describe("updatePvcImported", func() {
+	Context("1. with no pvc", func() {
+		r := createFakeReconcileVmi()
+		err := r.updatePvcImported(false)
+
+		It("Should return error", func() {
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+	})
+
+	Context("2. with pvc and update to yes", func() {
+		pvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
 			},
-			StorageClassName: &storageClassName,
-		},
-	}
-	return createFakeReconcileVmi(pvc), pvc
-}
+		}
+		r := createFakeReconcileVmi(pvc)
+		err := r.updatePvcImported(true)
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should pvc has annotation with imported yes", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetPvcNameFromVmiName(r.vmi.Name)}, pvc)
+			Expect(err).Should(BeNil())
+			Expect(pvc.Annotations["imported"]).Should(Equal("yes"))
+		})
+	})
+
+	Context("3. with pvc and update to no", func() {
+		pvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+		}
+		r := createFakeReconcileVmi(pvc)
+		err := r.updatePvcImported(false)
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should pvc has annotation with imported no", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetPvcNameFromVmiName(r.vmi.Name)}, pvc)
+			Expect(err).Should(BeNil())
+			Expect(pvc.Annotations["imported"]).Should(Equal("no"))
+		})
+	})
+})

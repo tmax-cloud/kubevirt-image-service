@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	goerrors "errors"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,74 +15,82 @@ import (
 	"testing"
 )
 
-func virtualMachineImageTest(t *testing.T, ctx *framework.Context) {
+const (
+	storageClassName  = "rook-ceph-block"
+	snapshotClassName = "csi-rbdplugin-snapclass"
+)
+
+func virtualMachineImageTest(t *testing.T, ctx *framework.Context) error {
 	ns, err := ctx.GetWatchNamespace()
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-
 	sc := &v1alpha1.VirtualMachineImage{}
 	err = framework.AddToFrameworkScheme(apis.AddToScheme, sc)
 	if err != nil {
-		t.Fatal(err)
-	}
-
-	cleanupOptions := newCleanupOptions()
-	if err = virtualMachineImageStateAvailableTest(t, cleanupOptions, ns, "testcr"); err != nil {
-		t.Log(err)
-		t.Fatal(err)
-	}
-
-	if err = virtualMachineImageStateSnapshottingErrorTest(t, cleanupOptions, ns, "testcr2"); err != nil {
-		t.Log(err)
-		t.Fatal(err)
-	}
-}
-
-func virtualMachineImageStateAvailableTest(t *testing.T, cleanupOptions *framework.CleanupOptions, namespace, name string) error {
-	vmi := newVmi(namespace, name)
-
-	if err := framework.Global.Client.Create(context.Background(), vmi, cleanupOptions); err != nil {
 		return err
 	}
-
-	if err := waitForVmiState(t, namespace, name, v1alpha1.VirtualMachineImageStateAvailable); err != nil {
+	if err := testVmi(t, ns); err != nil {
+		return err
+	}
+	if err := testVmiWithInvalidSnapshotClassName(t, ns); err != nil {
 		return err
 	}
 	return nil
 }
 
-func virtualMachineImageStateSnapshottingErrorTest(t *testing.T, cleanupOptions *framework.CleanupOptions, namespace, name string) error {
-	vmi := newVmi(namespace, name)
-	vmi.Spec.SnapshotClassName = "abc"
-
-	if err := framework.Global.Client.Create(context.Background(), vmi, cleanupOptions); err != nil {
+func testVmi(t *testing.T, namespace string) error {
+	vmiName := "availvmi"
+	vmi := newVmi(namespace, vmiName)
+	if err := framework.Global.Client.Create(context.Background(), vmi, &cleanupOptions); err != nil {
 		return err
 	}
-
-	if err := waitForVmiState(t, namespace, name, v1alpha1.VirtualMachineImageStateSnapshottingError); err != nil {
-		return err
-	}
-	return nil
+	return waitForVmi(t, namespace, vmiName)
 }
 
-func waitForVmiState(t *testing.T, namespace, name string, state v1alpha1.VirtualMachineImageState) error {
+func testVmiWithInvalidSnapshotClassName(t *testing.T, namespace string) error {
+	vmiName := "errorvmi"
+	vmi := newVmi(namespace, vmiName)
+	vmi.Spec.SnapshotClassName = "wrongSnapshotClassname"
+	if err := framework.Global.Client.Create(context.Background(), vmi, &cleanupOptions); err != nil {
+		return err
+	}
+	return waitForVmiStateError(t, namespace, vmiName)
+}
+
+func waitForVmi(t *testing.T, namespace, name string) error {
 	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		t.Logf("Waiting for creating vmi: %s in Namespace: %s \n", name, namespace)
 		vmi := &v1alpha1.VirtualMachineImage{}
 		if err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, vmi); err != nil {
 			if errors.IsNotFound(err) {
-				t.Logf("Waiting for creating vmi: %s in Namespace: %s \n", name, namespace)
 				return false, nil
 			}
 			return false, err
 		}
-		t.Logf("Waiting for %s of %s vmi\n", state, name)
-		return vmi.Status.State == state, nil
+		if vmi.Status.State == v1alpha1.VirtualMachineImageStateError {
+			return false, goerrors.New(vmi.Status.ErrorMessage)
+		}
+		return *vmi.Status.ReadyToUse, nil
+	})
+}
+
+func waitForVmiStateError(t *testing.T, namespace, name string) error {
+	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		t.Logf("Waiting for creating vmi: %s in Namespace: %s \n", name, namespace)
+		vmi := &v1alpha1.VirtualMachineImage{}
+		if err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, vmi); err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return vmi.Status.State == v1alpha1.VirtualMachineImageStateError, nil
 	})
 }
 
 func newVmi(ns, name string) *v1alpha1.VirtualMachineImage {
-	storageClassName := "rook-ceph-block"
+	scName := storageClassName
 	volumeMode := corev1.PersistentVolumeBlock
 	return &v1alpha1.VirtualMachineImage{
 		ObjectMeta: v1.ObjectMeta{
@@ -100,9 +109,9 @@ func newVmi(ns, name string) *v1alpha1.VirtualMachineImage {
 						corev1.ResourceStorage: resource.MustParse("3Gi"),
 					},
 				},
-				StorageClassName: &storageClassName,
+				StorageClassName: &scName,
 			},
-			SnapshotClassName: "csi-rbdplugin-snapclass",
+			SnapshotClassName: snapshotClassName,
 		},
 	}
 }

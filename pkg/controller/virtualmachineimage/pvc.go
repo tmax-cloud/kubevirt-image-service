@@ -2,87 +2,95 @@ package virtualmachineimage
 
 import (
 	"context"
+	goerrors "errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *ReconcileVirtualMachineImage) getPvc(isScratch bool) error {
-	pvcName := GetPvcName(r.vmi.Name, isScratch)
-	pvcNamespace := r.getNamespace()
-	pvc := &corev1.PersistentVolumeClaim{}
-	if err := r.client.Get(context.Background(), types.NamespacedName{Name: pvcName, Namespace: pvcNamespace}, pvc); err != nil {
+func (r *ReconcileVirtualMachineImage) syncPvc() error {
+	if _, err := r.getPvc(r.vmi); err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
 		return err
 	}
-	r.log.Info("Get pvc", "pvc", pvc)
-	return nil
-}
 
-func (r *ReconcileVirtualMachineImage) createPvc(isScratch bool) error {
-	r.log.Info("Create new pvc", "name", GetPvcName(r.vmi.Name, isScratch), "namespace", r.getNamespace())
-	pvc, err := r.newPvc(isScratch)
+	klog.Infof("Create a new pvc for vmi %s", r.vmi.Name)
+	if err := r.updateStateWithReadyToUse(r.vmi, false, hc.VirtualMachineImageStateCreating); err != nil {
+		return err
+	}
+
+	newPvc, err := newPvc(r.vmi, r.scheme)
 	if err != nil {
 		return err
 	}
-	if err := r.client.Create(context.Background(), pvc); err != nil {
+	if err := r.client.Create(context.TODO(), newPvc); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 	return nil
 }
 
-func (r *ReconcileVirtualMachineImage) deletePvc(isScratch bool) error {
-	pvcName := GetPvcName(r.vmi.Name, isScratch)
-	pvcNamespace := r.getNamespace()
-	r.log.Info("Delete pvc", "name", pvcName, "namespace", pvcNamespace)
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: pvcNamespace,
-		},
+func (r *ReconcileVirtualMachineImage) getPvc(vmi *hc.VirtualMachineImage) (*corev1.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: GetPvcNameFromVmiName(vmi.Name), Namespace: vmi.Namespace}, pvc)
+	if err != nil {
+		return nil, err
 	}
-	return r.client.Delete(context.Background(), pvc)
+	return pvc, err
 }
 
-// GetPvcName is called to create pvc name
-func GetPvcName(vmiName string, isScratch bool) string {
-	if isScratch {
-		return vmiName + "-scratch-image-pvc"
-	}
+// GetPvcNameFromVmiName is return pvcName for vmiName
+func GetPvcNameFromVmiName(vmiName string) string {
 	return vmiName + "-image-pvc"
 }
 
-func (r *ReconcileVirtualMachineImage) getNamespace() string {
-	return r.vmi.Namespace
-}
-
-func (r *ReconcileVirtualMachineImage) newPvc(isScratch bool) (*corev1.PersistentVolumeClaim, error) {
-	pvcName := GetPvcName(r.vmi.Name, isScratch)
-	pvcNamespace := r.getNamespace()
+func newPvc(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: pvcNamespace,
+			Name:        GetPvcNameFromVmiName(vmi.Name),
+			Namespace:   vmi.Namespace,
+			Annotations: map[string]string{"imported": "no"},
 		},
-		Spec: r.vmi.Spec.PVC,
+		Spec: vmi.Spec.PVC,
 	}
-	if isScratch {
-		scratchPvc := r.vmi.Spec.PVC.DeepCopy()
-		volumeMode := corev1.PersistentVolumeFilesystem
-		scratchPvc.VolumeMode = &volumeMode
-		pvc.Spec = *scratchPvc
-	} else
-		if pvc.Spec.VolumeMode == nil {
-			volumeMode := corev1.PersistentVolumeBlock
-			pvc.Spec.VolumeMode = &volumeMode
-		}
-
-	if err := controllerutil.SetControllerReference(r.vmi, pvc, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(vmi, pvc, scheme); err != nil {
 		return nil, err
 	}
 	return pvc, nil
+}
+
+func (r *ReconcileVirtualMachineImage) isPvcImported() (imported, found bool, err error) {
+	pvc, err := r.getPvc(r.vmi)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+	i, found := pvc.Annotations["imported"]
+	if !found {
+		return false, true, goerrors.New("invalid pvc annotation: Must need 'imported'")
+	}
+	return i == "yes", true, nil
+}
+
+func (r *ReconcileVirtualMachineImage) updatePvcImported(imported bool) error {
+	pvc, err := r.getPvc(r.vmi)
+	if err != nil {
+		return err
+	}
+	if pvc.Annotations == nil {
+		pvc.Annotations = map[string]string{}
+	}
+	if imported {
+		pvc.Annotations["imported"] = "yes"
+	} else {
+		pvc.Annotations["imported"] = "no"
+	}
+	return r.client.Update(context.TODO(), pvc)
 }

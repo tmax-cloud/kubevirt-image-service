@@ -13,9 +13,7 @@ const (
 	operatorName         = "kubevirt-image-service"
 )
 
-func newCleanupOptions() *framework.CleanupOptions {
-	return &framework.CleanupOptions{
-		Timeout:       cleanupTimeout,
-		RetryInterval: cleanupRetryInterval,
-	}
+var cleanupOptions = framework.CleanupOptions{
+	Timeout:       cleanupTimeout,
+	RetryInterval: cleanupRetryInterval,
 }

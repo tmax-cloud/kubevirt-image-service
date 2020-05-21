@@ -6,7 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -15,8 +18,6 @@ const (
 	DataVolName = "data-vol"
 	// ScratchVolName provides a const to use for creating scratch pvc volumes in pod specs
 	ScratchVolName = "scratch-vol"
-	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
-	ImporterDataDir = "/data"
 	// ScratchDataDir provides a constant for the controller pkg to use as a hardcoded path to where scratch space is located.
 	ScratchDataDir = "/scratch"
 	// WriteBlockPath provides a constant for the path where the PV is mounted.
@@ -35,7 +36,6 @@ const (
 	SourceHTTP = "http"
 	// ImageContentType is the content-type of the imported file
 	ImageContentType = "kubevirt"
-
 	// ImportPodImage and ImportPodVerbose should be modified to get value from vmi env
 	// ImportPodImage indicates image name of the import pod
 	ImportPodImage = "kubevirt/cdi-importer:v1.13.0"
@@ -43,71 +43,77 @@ const (
 	ImportPodVerbose = "1"
 )
 
-func (r *ReconcileVirtualMachineImage) getImporterPod() (*corev1.Pod, error) {
-	ipName := GetImporterPodName(r.vmi.Name)
-	ipNamespace := r.getNamespace()
-	pod := &corev1.Pod{}
-	if err := r.client.Get(context.Background(), types.NamespacedName{Namespace: ipNamespace, Name: ipName}, pod); err != nil {
-		return nil, err
-	}
-	r.log.Info("Get Pod", "pod", pod)
-	return pod, nil
-}
-
-func (r *ReconcileVirtualMachineImage) createImporterPod() (*corev1.Pod, error) {
-	r.log.Info("Create new importerPod", "name", GetImporterPodName(r.vmi.Name), "namespace", r.getNamespace())
-	ip, err := r.newImporterPod()
+func (r *ReconcileVirtualMachineImage) syncImporterPod() error {
+	imported, found, err := r.isPvcImported()
 	if err != nil {
-		return nil, err
+		return err
+	} else if !found {
+		klog.Warningf("syncImporterPod without pvc in vmi %s", r.vmi.Name)
+		return nil
 	}
-	if err := r.client.Create(context.Background(), ip); err != nil {
-		return nil, err
+
+	importerPod := &corev1.Pod{}
+	err = r.client.Get(context.Background(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
 	}
-	return ip, nil
+	existsImporterPod := err == nil
+
+	if !imported && existsImporterPod && isPodCompleted(importerPod) {
+		// 임포팅이 완료됐으니 애노테이션을 업데이트하고 삭제한다.
+		klog.Infof("syncImporterPod finish for vmi %s, delete importerPod", r.vmi.Name)
+		if err := r.updatePvcImported(true); err != nil {
+			return err
+		}
+		if err := r.client.Delete(context.TODO(), importerPod); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	} else if !imported && !existsImporterPod {
+		// 임포팅을 해야 하므로 임포터파드를 만든다
+		klog.Infof("syncImporterPod create new importerPod for vmi %s", r.vmi.Name)
+		newPod, err := newImporterPod(r.vmi, r.scheme)
+		if err != nil {
+			return err
+		}
+		if err := r.client.Create(context.TODO(), newPod); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
 }
 
-func (r *ReconcileVirtualMachineImage) deleteImporterPod() error {
-	ipName := GetImporterPodName(r.vmi.Name)
-	ipNamespace := r.getNamespace()
-	r.log.Info("Delete importerPod", "name", ipName, "namespace", ipNamespace)
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ipName,
-			Namespace: ipNamespace,
-		},
-	}
-	return r.client.Delete(context.Background(), pod)
+func isPodCompleted(pod *corev1.Pod) bool {
+	return len(pod.Status.ContainerStatuses) != 0 &&
+		pod.Status.ContainerStatuses[0].State.Terminated != nil &&
+		pod.Status.ContainerStatuses[0].State.Terminated.Reason == "Completed"
 }
 
-// GetImporterPodName is called to create importer pod name
-func GetImporterPodName(vmiName string) string {
+// GetImporterPodNameFromVmiName returns ImporterPod name from VmiName
+func GetImporterPodNameFromVmiName(vmiName string) string {
 	return vmiName + "-image-importer"
 }
 
-func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
-	ipName := GetImporterPodName(r.vmi.Name)
-	ipNamespace := r.getNamespace()
-	source, endpoint, err := r.getSourceAndEndpoint()
+func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev1.Pod, error) {
+	source, endpoint, err := getSourceAndEndpoint(vmi)
 	if err != nil {
 		return nil, err
 	}
-	pvcSize, found := r.vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+
+	pvcSize, found := vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
 	if !found {
 		return nil, errors.NewBadRequest("storage request in pvc is missing")
 	}
+
 	ip := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ipName,
-			Namespace: ipNamespace,
+			Name:      GetImporterPodNameFromVmiName(vmi.Name),
+			Namespace: vmi.Namespace,
 		},
 		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyOnFailure,
 			Containers: []corev1.Container{
 				{
-					Name:  ipName,
+					Name:  "importer",
 					Image: ImportPodImage,
 					Args:  []string{"-v=" + ImportPodVerbose},
 					Env: []corev1.EnvVar{
@@ -125,6 +131,15 @@ func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 							corev1.ResourceCPU:    resource.MustParse("0"),
 							corev1.ResourceMemory: resource.MustParse("0")},
 					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      ScratchVolName,
+							MountPath: ScratchDataDir,
+						},
+					},
+					VolumeDevices: []corev1.VolumeDevice{
+						{Name: DataVolName, DevicePath: WriteBlockPath},
+					},
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -132,7 +147,7 @@ func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 					Name: DataVolName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: GetPvcName(r.vmi.Name, false),
+							ClaimName: GetPvcNameFromVmiName(vmi.Name),
 						},
 					},
 				},
@@ -140,59 +155,25 @@ func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 					Name: ScratchVolName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: GetPvcName(r.vmi.Name, true),
+							ClaimName: getScratchPvcNameFromVmiName(vmi.Name),
 						},
 					},
 				},
 			},
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsUser: &[]int64{0}[0],
+			},
 		},
 	}
-
-	r.addVolumeMounts(ip)
-
-	if err := controllerutil.SetControllerReference(r.vmi, ip, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(vmi, ip, scheme); err != nil {
 		return nil, err
 	}
 	return ip, nil
 }
 
-func (r *ReconcileVirtualMachineImage) getSourceAndEndpoint() (source, endpoint string, err error) {
-	if r.vmi.Spec.Source.HTTP == "" {
+func getSourceAndEndpoint(vmi *hc.VirtualMachineImage) (source, endpoint string, err error) {
+	if vmi.Spec.Source.HTTP == "" {
 		return "", "", errors.NewBadRequest("Invalid spec.source. Must provide http source.")
 	}
-	return SourceHTTP, r.vmi.Spec.Source.HTTP, nil
-}
-
-func (r *ReconcileVirtualMachineImage) isCompleted(pod *corev1.Pod) bool {
-	return len(pod.Status.ContainerStatuses) != 0 &&
-		pod.Status.ContainerStatuses[0].State.Terminated != nil &&
-		pod.Status.ContainerStatuses[0].State.Terminated.Reason == "Completed"
-}
-
-func (r *ReconcileVirtualMachineImage) addVolumeMounts(pod *corev1.Pod) {
-	volumeMode := getVolumeMode(&r.vmi.Spec.PVC)
-	if volumeMode == corev1.PersistentVolumeBlock {
-		pod.Spec.Containers[0].VolumeDevices = []corev1.VolumeDevice{
-			{Name: DataVolName, DevicePath: WriteBlockPath},
-		}
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsUser: &[]int64{0}[0],
-		}
-	} else {
-		pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
-			{Name: DataVolName, MountPath: ImporterDataDir},
-		}
-	}
-
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      ScratchVolName,
-		MountPath: ScratchDataDir,
-	})
-}
-
-func getVolumeMode(pvcSpec *corev1.PersistentVolumeClaimSpec) corev1.PersistentVolumeMode {
-	if pvcSpec.VolumeMode != nil {
-		return *pvcSpec.VolumeMode
-	}
-	return corev1.PersistentVolumeBlock
+	return SourceHTTP, vmi.Spec.Source.HTTP, nil
 }

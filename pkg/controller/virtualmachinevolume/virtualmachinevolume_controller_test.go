@@ -20,7 +20,8 @@ import (
 var _ = Describe("Volume reconcile loop", func() {
 	table.DescribeTable("Should reconcile volume status against volume pvc phases", func(expected hc.VirtualMachineVolumeState, pvcPhase corev1.PersistentVolumeClaimPhase) {
 		image := newImage()
-		image.Status.State = hc.VirtualMachineImageStateAvailable
+		t := true
+		image.Status.ReadyToUse = &t
 		pvc := newPvc()
 		pvc.Status.Phase = pvcPhase
 		r := newReconcileVolume(newVolume(), image, pvc)
@@ -56,7 +57,7 @@ func newImage() *hc.VirtualMachineImage {
 				HTTP: "https://kr.tmaxsoft.com/main.do",
 			},
 			PVC: corev1.PersistentVolumeClaimSpec{
-				AccessModes:  []corev1.PersistentVolumeAccessMode{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
 				Resources: corev1.ResourceRequirements{
@@ -88,7 +89,7 @@ func newPvc() *corev1.PersistentVolumeClaim {
 			DataSource: &corev1.TypedLocalObjectReference{
 				APIGroup: &apiGroup,
 				Kind:     "VolumeSnapshot",
-				Name:     img.GetSnapshotName("myvmi"),
+				Name:     img.GetSnapshotNameFromVmiName("myvmi"),
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{

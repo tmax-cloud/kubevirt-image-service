@@ -27,8 +27,7 @@ func virtualMachineVolumeTest(t *testing.T, ctx *framework.Context) {
 		t.Fatal(err)
 	}
 
-	cleanupOptions := newCleanupOptions()
-	if err := virtualMachineVolumeStateAvailableTest(t, cleanupOptions, ns); err != nil {
+	if err := virtualMachineVolumeStateAvailableTest(t, &cleanupOptions, ns); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -83,7 +82,7 @@ func newVmv(ns string) *hc.VirtualMachineVolume {
 		},
 		Spec: hc.VirtualMachineVolumeSpec{
 			VirtualMachineImage: hc.VirtualMachineImageName{
-				Name: "testcr",
+				Name: "availvmi",
 			},
 			Capacity: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("3Gi"),

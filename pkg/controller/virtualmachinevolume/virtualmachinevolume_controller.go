@@ -128,11 +128,10 @@ func (r *ReconcileVirtualMachineVolume) volumeReconcile() (reconcile.Result, err
 	}
 
 	// Check virtualMachineImage state is available
-	if image.Status.State != hc.VirtualMachineImageStateAvailable {
+	if image.Status.ReadyToUse == nil || !*image.Status.ReadyToUse {
 		r.log.Info("VirtualMachineImage state is not available")
 		return reconcile.Result{}, goerrors.New("VirtualMachineImage state is not available")
 	}
-
 	// Check pvc size
 	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
 	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]

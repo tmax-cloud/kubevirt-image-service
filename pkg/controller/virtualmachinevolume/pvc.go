@@ -28,7 +28,7 @@ func (r *ReconcileVirtualMachineVolume) createVolumePvc(image *hc.VirtualMachine
 			DataSource: &corev1.TypedLocalObjectReference{
 				APIGroup: &apiGroup,
 				Kind:     "VolumeSnapshot",
-				Name:     img.GetSnapshotName(image.Name),
+				Name:     img.GetSnapshotNameFromVmiName(image.Name),
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: r.volume.Spec.Capacity,

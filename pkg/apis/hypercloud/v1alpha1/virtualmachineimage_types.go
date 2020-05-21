@@ -21,28 +21,26 @@ type VirtualMachineImageSpec struct {
 type VirtualMachineImageState string
 
 const (
-	// VirtualMachineImageStatePvcCreating indicates pvc for VirtualMachineImage is creating
-	VirtualMachineImageStatePvcCreating VirtualMachineImageState = "PvcCreating"
-	// VirtualMachineImageStatePvcCreatingError indicates pvc creating is error
-	VirtualMachineImageStatePvcCreatingError VirtualMachineImageState = "PvcCreatingError"
+	// VirtualMachineImageStateCreating indicates VirtualMachineImage is creating
+	VirtualMachineImageStateCreating VirtualMachineImageState = "Creating"
 	// VirtualMachineImageStateAvailable indicates VirtualMachineImage is available
 	VirtualMachineImageStateAvailable VirtualMachineImageState = "Available"
 	// VirtualMachineImageStateError indicates VirtualMachineImage is error
 	VirtualMachineImageStateError VirtualMachineImageState = "Error"
-	// VirtualMachineImageStateImporting (TODO)
-	VirtualMachineImageStateImporting VirtualMachineImageState = "Importing"
-	// VirtualMachineImageStateImportingError (TODO)
-	VirtualMachineImageStateImportingError VirtualMachineImageState = "ImportingError"
-	// VirtualMachineImageStateSnapshotting (TODO)
-	VirtualMachineImageStateSnapshotting VirtualMachineImageState = "Snapshotting"
-	// VirtualMachineImageStateSnapshottingError (TODO)
-	VirtualMachineImageStateSnapshottingError VirtualMachineImageState = "SnapshottingError"
 )
+
+// VirtualMachineImageConditionType defines the condition of VirtualMachineImage
+type VirtualMachineImageConditionType string
 
 // VirtualMachineImageStatus defines the observed state of VirtualMachineImage
 type VirtualMachineImageStatus struct {
 	// State is the current state of VirtualMachineImage
 	State VirtualMachineImageState `json:"state"`
+	// +optional
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+	// Human-readable message indicating details about last transition.
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

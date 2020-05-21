@@ -6,187 +6,200 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	storage "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const snapshotClassName = "csi-rbdplugin-snapclass"
-
-var _ = Describe("getSnapshot", func() {
-	It("Should get the snapshot, if vmi has a snapshot", func() {
-		r, snapshot := createFakeReconcileVmiWithSnapshot()
-		snapshotFound, err := r.getSnapshot()
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(snapshotFound.Spec).To(Equal(snapshot.Spec))
-	})
-
-	It("Should not get the snapshot, if vmi has no snapshot", func() {
+// 번호		pvc		annoation		snapshot
+// 1		X
+// 2		O		X
+// 3		O		no				X
+// 4		O		no				O
+// 5		O		yes				readyToUse
+// 6		O		yes				Not ReadyToUse
+// 7		O		yes				error
+var _ = Describe("syncSnapshot", func() {
+	Context("1. with no pvc", func() {
 		r := createFakeReconcileVmi()
-		_, err := r.getSnapshot()
+		err := r.syncSnapshot()
 
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
-})
-
-var _ = Describe("createSnapshot", func() {
-	It("Should success to create the snapshot", func() {
-		snapshotClassName := snapshotClassName
-		snapshotSpecExpected := snapshotv1alpha1.VolumeSnapshotSpec{
-			Source: &corev1.TypedLocalObjectReference{
-				Kind: "PersistentVolumeClaim",
-				Name: GetPvcName("testvmi", false),
-			},
-			SnapshotContentName:     "",
-			VolumeSnapshotClassName: &snapshotClassName,
-		}
-
-		r := createFakeReconcileVmi()
-		snapCreated, err := r.createSnapshot()
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(snapCreated.Spec).To(Equal(snapshotSpecExpected))
-	})
-})
-
-var _ = Describe("deleteSnapshot", func() {
-	It("Should delete the snapshot, if vmi has a snapshot", func() {
-		r, _ := createFakeReconcileVmiWithSnapshot()
-
-		err := r.deleteSnapshot()
-		Expect(err).ToNot(HaveOccurred())
-
-		snapshotFound := &snapshotv1alpha1.VolumeSnapshot{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetSnapshotName(r.vmi.Name), Namespace: "default"}, snapshotFound)
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
 	})
 
-	It("Should not delete the snapshot, if vmi has no snapshot", func() {
-		r := createFakeReconcileVmi()
-		err := r.deleteSnapshot()
-
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
-})
-
-var _ = Describe("GetSnapshotName", func() {
-	It("Should get the snapshotName", func() {
-		expectedSnapshotName := "testvmi-image-snapshot"
-
-		r := createFakeReconcileVmi()
-		snapshotName := GetSnapshotName(r.vmi.Name)
-
-		Expect(snapshotName).To(Equal(expectedSnapshotName))
-	})
-})
-
-var _ = Describe("newSnapshot", func() {
-	It("Should get the newSnapshot", func() {
-		r := createFakeReconcileVmi()
-		snapshot, err := r.newSnapshot()
-
-		isController := true
-		blockOwnerDeletion := true
-		expectedSnapshot := &snapshotv1alpha1.VolumeSnapshot{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "VolumeSnapshot",
-				APIVersion: "snapshot.storage.k8s.io/v1alpha1",
-			},
+	Context("2. with pvc(without annotation)", func() {
+		pvcWithoutAnnotation := &corev1.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      GetSnapshotName(r.vmi.Name),
-				Namespace: "default",
-				OwnerReferences: []v1.OwnerReference{
-					{
-						APIVersion:         "hypercloud.tmaxanc.com/v1alpha1",
-						Kind:               "VirtualMachineImage",
-						Name:               "testvmi",
-						UID:                "",
-						Controller:         &isController,
-						BlockOwnerDeletion: &blockOwnerDeletion,
-					},
-				},
-			},
-			Spec: snapshotv1alpha1.VolumeSnapshotSpec{
-				Source: &corev1.TypedLocalObjectReference{
-					Kind: "PersistentVolumeClaim",
-					Name: GetPvcName("testvmi", false),
-				},
-				VolumeSnapshotClassName: &r.vmi.Spec.SnapshotClassName,
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
 			},
 		}
+		r := createFakeReconcileVmi(pvcWithoutAnnotation)
+		err := r.syncSnapshot()
 
-		Expect(err).ToNot(HaveOccurred())
-		Expect(snapshot).To(Equal(expectedSnapshot))
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+
+	Context("3. with pvc(imported: no) and no snapshot", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc)
+		err := r.syncSnapshot()
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not create snapshot", func() {
+			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+	})
+
+	Context("4. with pvc(imported: no) and snapshot", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetSnapshotNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc, snapshot)
+		err := r.syncSnapshot()
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should Delete snapshot", func() {
+			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+	})
+
+	Context("5. with pvc(imported: yes) and snapshot(readyToUse: true)", func() {
+		importedPod := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "yes",
+				},
+			},
+		}
+		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetSnapshotNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+			Status: snapshotv1alpha1.VolumeSnapshotStatus{
+				ReadyToUse: true,
+			},
+		}
+		r := createFakeReconcileVmi(importedPod, snapshot)
+		err := r.syncSnapshot()
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not Delete snapshot", func() {
+			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
+			Expect(err).Should(BeNil())
+		})
+		It("Should update state to available", func() {
+			vmi := &hc.VirtualMachineImage{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: r.vmi.Name}, vmi)
+			Expect(err).Should(BeNil())
+			Expect(vmi.Status.State).Should(Equal(hc.VirtualMachineImageStateAvailable))
+		})
+		It("Should update readyToUse to true", func() {
+			vmi := &hc.VirtualMachineImage{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: r.vmi.Name}, vmi)
+			Expect(err).Should(BeNil())
+			Expect(*vmi.Status.ReadyToUse).Should(BeTrue())
+		})
+	})
+
+	Context("6. with pvc(imported: yes) and snapshot(readyToUse: false)", func() {
+		importedPod := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "yes",
+				},
+			},
+		}
+		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetSnapshotNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+			Status: snapshotv1alpha1.VolumeSnapshotStatus{
+				ReadyToUse: false,
+			},
+		}
+		r := createFakeReconcileVmi(importedPod, snapshot)
+		err := r.syncSnapshot()
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not Delete snapshot", func() {
+			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("7. with pvc(imported: yes) and snapshot(error)", func() {
+		importedPod := &corev1.PersistentVolumeClaim{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "yes",
+				},
+			},
+		}
+		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      GetSnapshotNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+			Status: snapshotv1alpha1.VolumeSnapshotStatus{
+				Error: &storage.VolumeError{
+					Message: "errors",
+				},
+			},
+		}
+		r := createFakeReconcileVmi(importedPod, snapshot)
+		err := r.syncSnapshot()
+
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
 	})
 })
-
-func createFakeReconcileVmi(objects ...runtime.Object) *ReconcileVirtualMachineImage {
-	storageClassName := blockStorageClassName
-	vmi := &hc.VirtualMachineImage{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "VirtualMachineImage",
-			APIVersion: "hypercloud.tmaxanc.com/v1alpha1",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "testvmi",
-			Namespace: "default",
-		},
-		Spec: hc.VirtualMachineImageSpec{
-			Source: hc.VirtualMachineImageSource{
-				HTTP: "https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img",
-			},
-			PVC: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-				Resources: corev1.ResourceRequirements{
-					Requests: map[corev1.ResourceName]resource.Quantity{
-						corev1.ResourceStorage: resource.MustParse("3Gi"),
-					},
-				},
-				StorageClassName: &storageClassName,
-			},
-			SnapshotClassName: snapshotClassName,
-		},
-	}
-
-	s := scheme.Scheme
-	err := hc.SchemeBuilder.AddToScheme(s)
-	Expect(err).ToNot(HaveOccurred())
-	err = snapshotv1alpha1.AddToScheme(s)
-	Expect(err).ToNot(HaveOccurred())
-
-	var objs []runtime.Object
-	objs = append(objs, objects...)
-	cl := fake.NewFakeClientWithScheme(s, objs...)
-
-	return &ReconcileVirtualMachineImage{
-		client: cl,
-		scheme: s,
-		vmi:    vmi,
-		log:    log.WithName("controller-test"),
-	}
-}
-
-func createFakeReconcileVmiWithSnapshot() (*ReconcileVirtualMachineImage, *snapshotv1alpha1.VolumeSnapshot) {
-	snapshotClassName := snapshotClassName
-	snapshot := &snapshotv1alpha1.VolumeSnapshot{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      GetSnapshotName("testvmi"),
-			Namespace: "default",
-		},
-		Spec: snapshotv1alpha1.VolumeSnapshotSpec{
-			Source: &corev1.TypedLocalObjectReference{
-				Kind: "PersistentVolumeClaim",
-				Name: GetPvcName("testvmi", false),
-			},
-			SnapshotContentName:     "",
-			VolumeSnapshotClassName: &snapshotClassName,
-		},
-	}
-	return createFakeReconcileVmi(snapshot), snapshot
-}

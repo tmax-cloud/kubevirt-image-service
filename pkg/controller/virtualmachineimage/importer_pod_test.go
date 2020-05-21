@@ -6,176 +6,149 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("getImporterPod", func() {
-	It("Should get the importer pod, if vmi has a importer pod", func() {
-		r, importerPod := createFakeReconcileVmiWithImporterPod()
-		importerPodFound, err := r.getImporterPod()
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(importerPodFound.Spec).To(Equal(importerPod.Spec))
-	})
-
-	It("Should not get the importer pod, if vmi has no importer pod", func() {
+// 번호		pvc		imported		importPod		importPodState
+// 1		X
+// 2		O		yes				X
+// 3		O		no				X
+// 4		O		no				O				Running
+// 5		O		no				O				Complete
+var _ = Describe("syncImporterPod", func() {
+	Context("1. with no pvc", func() {
 		r := createFakeReconcileVmi()
-		_, err := r.getImporterPod()
+		err := r.syncImporterPod()
 
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
-})
-
-var _ = Describe("createImporterPod", func() {
-	It("Should success to create the importer pod", func() {
-		expectedImporterPodSpec := *createImporterPodSpec()
-
-		r := createFakeReconcileVmi()
-		importerPodCreated, err := r.createImporterPod()
-		Expect(err).ToNot(HaveOccurred())
-
-		importerPodFound := &corev1.Pod{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetImporterPodName(r.vmi.Name), Namespace: "default"}, importerPodFound)
-		Expect(errors.IsNotFound(err)).To(BeFalse())
-
-		Expect(importerPodCreated.Spec).To(Equal(expectedImporterPodSpec))
-		Expect(importerPodFound.Spec).To(Equal(expectedImporterPodSpec))
-	})
-})
-
-var _ = Describe("deleteImporterPod", func() {
-	It("Should delete the importer pod, if vmi has a importer pod", func() {
-		r, _ := createFakeReconcileVmiWithImporterPod()
-
-		err := r.deleteImporterPod()
-		Expect(err).ToNot(HaveOccurred())
-
-		importerPodFound := &corev1.Pod{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: GetImporterPodName(r.vmi.Name), Namespace: "default"}, importerPodFound)
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not create importerPod", func() {
+			importerPod := &corev1.Pod{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
 	})
 
-	It("Should not delete the importer pod, if vmi has no importer pod", func() {
-		r := createFakeReconcileVmi()
-		err := r.deleteImporterPod()
-
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	})
-})
-
-var _ = Describe("GetImporterPodName", func() {
-	It("Should get the importerPodName", func() {
-		expectedImporterPodName := "testvmi-image-importer"
-
-		r := createFakeReconcileVmi()
-		importerPodName := GetImporterPodName(r.vmi.Name)
-
-		Expect(importerPodName).To(Equal(expectedImporterPodName))
-	})
-})
-
-var _ = Describe("newImporterPod", func() {
-	It("Should success to create the importer pod", func() {
-		r := createFakeReconcileVmi()
-		importerPod, err := r.newImporterPod()
-
-		isController := true
-		blockOwnerDeletion := true
-		expectedImporterPod := &corev1.Pod{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name:      GetImporterPodName(r.vmi.Name),
-				Namespace: "default",
-				OwnerReferences: []v1.OwnerReference{
-					{
-						APIVersion:         "hypercloud.tmaxanc.com/v1alpha1",
-						Kind:               "VirtualMachineImage",
-						Name:               "testvmi",
-						UID:                "",
-						Controller:         &isController,
-						BlockOwnerDeletion: &blockOwnerDeletion,
-					},
+	Context("2. with pvc, imported=yes, no importerPod", func() {
+		importedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "yes",
 				},
 			},
-			Spec: *createImporterPodSpec(),
 		}
+		r := createFakeReconcileVmi(importedPvc)
+		err := r.syncImporterPod()
 
-		Expect(err).ToNot(HaveOccurred())
-		Expect(importerPod).To(Equal(expectedImporterPod))
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not create importerPod", func() {
+			importerPod := &corev1.Pod{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+	})
+
+	Context("3. with pvc, imported=no, no importerPod", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc)
+		err := r.syncImporterPod()
+
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should create importerPod", func() {
+			importerPod := &corev1.Pod{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("4. with pvc, imported=no, importerPod with running", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		importerPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetImporterPodNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc, importerPod)
+		err := r.syncImporterPod()
+
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should not delete importerPod", func() {
+			importerPod := &corev1.Pod{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("5. with pvc, imported=no, importerPod with complete", func() {
+		notImportedPvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetPvcNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+				Annotations: map[string]string{
+					"imported": "no",
+				},
+			},
+		}
+		importerPod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GetImporterPodNameFromVmiName(testVmiName),
+				Namespace: testVmiNs,
+			},
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{
+								Reason: "Completed",
+							},
+						},
+					},
+				},
+			},
+		}
+		r := createFakeReconcileVmi(notImportedPvc, importerPod)
+		err := r.syncImporterPod()
+
+		It("Should return no error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should delete importerPod", func() {
+			importerPod := &corev1.Pod{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetImporterPodNameFromVmiName(r.vmi.Name)}, importerPod)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+		It("Should update pvc annotation(imported=true)", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetPvcNameFromVmiName(r.vmi.Name)}, pvc)
+			Expect(err).Should(BeNil())
+			Expect(pvc.Annotations["imported"]).Should(Equal("yes"))
+		})
 	})
 })
-
-func createFakeReconcileVmiWithImporterPod() (*ReconcileVirtualMachineImage, *corev1.Pod) {
-	ip := &corev1.Pod{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      GetImporterPodName("testvmi"),
-			Namespace: "default",
-		},
-		Spec: *createImporterPodSpec(),
-	}
-	return createFakeReconcileVmi(ip), ip
-}
-
-func createImporterPodSpec() *corev1.PodSpec {
-	podSpec := &corev1.PodSpec{
-		SecurityContext: &corev1.PodSecurityContext{
-			RunAsUser: &[]int64{0}[0],
-		},
-		Containers: []corev1.Container{
-			{
-				Name:  GetImporterPodName("testvmi"),
-				Image: ImportPodImage,
-				Args:  []string{"-v=" + ImportPodVerbose},
-				VolumeDevices: []corev1.VolumeDevice{
-					{Name: DataVolName, DevicePath: WriteBlockPath},
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{Name: ScratchVolName, MountPath: ScratchDataDir},
-				},
-				Env: []corev1.EnvVar{
-					{Name: ImporterSource, Value: "http"},
-					{Name: ImporterEndpoint, Value: "https://download.cirros-cloud.net/contrib/0.3.0/cirros-0.3.0-i386-disk.img"},
-					{Name: ImporterContentType, Value: "kubevirt"},
-					{Name: ImporterImageSize, Value: "3Gi"},
-					{Name: InsecureTLSVar, Value: "true"},
-				},
-				Resources: corev1.ResourceRequirements{
-					Limits: map[corev1.ResourceName]resource.Quantity{
-						corev1.ResourceCPU:    resource.MustParse("0"),
-						corev1.ResourceMemory: resource.MustParse("0")},
-					Requests: map[corev1.ResourceName]resource.Quantity{
-						corev1.ResourceCPU:    resource.MustParse("0"),
-						corev1.ResourceMemory: resource.MustParse("0")},
-				},
-			},
-		},
-		Volumes: []corev1.Volume{
-			{
-				Name: DataVolName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: GetPvcName("testvmi", false),
-					},
-				},
-			},
-			{
-				Name: ScratchVolName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: GetPvcName("testvmi", true),
-					},
-				},
-			},
-		},
-	}
-	return podSpec
-}

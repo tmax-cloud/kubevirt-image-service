@@ -3,23 +3,20 @@ package virtualmachinevolume
 import (
 	"context"
 	goerrors "errors"
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	"kubevirt-image-service/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var log = logf.Log.WithName("controller_virtualmachinevolume")
 
 // Add creates a new VirtualMachineVolume Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -34,27 +31,17 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
 	c, err := controller.New("virtualmachinevolume-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
-
-	// Watch for changes to primary resource VirtualMachineVolume
-	err = c.Watch(&source.Kind{Type: &hc.VirtualMachineVolume{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
+	if err := c.Watch(&source.Kind{Type: &hc.VirtualMachineVolume{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
 	}
-
-	// Watch for changes to secondary resource PVCs and requeue the owner VirtualMachineVolume
-	err = c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hc.VirtualMachineVolume{},
-	})
-	if err != nil {
+	if err := c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
+	&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineVolume{}}); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -68,117 +55,73 @@ type ReconcileVirtualMachineVolume struct {
 	client client.Client
 	scheme *runtime.Scheme
 	volume *hc.VirtualMachineVolume
-	log    logr.Logger
 }
 
 // Reconcile reads that state of the cluster for a VirtualMachineVolume object and makes changes based on the state read
 // and what is in the VirtualMachineVolume.Spec
 func (r *ReconcileVirtualMachineVolume) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	r.log = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	r.log.Info("Reconciling VirtualMachineVolume")
+	klog.Infof("Start sync VirtualMachineVolume %s", request.NamespacedName)
+	defer func() {
+		klog.Infof("End sync VirtualMachineVolume %s", request.NamespacedName)
+	}()
 
-	if err := r.fetchVolumeFromName(request.NamespacedName); err != nil {
+	cachedVolume := &hc.VirtualMachineVolume{}
+	if err := r.client.Get(context.TODO(), request.NamespacedName, cachedVolume); err != nil {
 		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, nil // Deleted Volume. Return and don't requeue.
 		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	r.volume = cachedVolume.DeepCopy()
 
-	// Set default state
-	if r.volume.Status.State == "" {
-		if err := r.updateState(hc.VirtualMachineVolumeStateCreating); err != nil {
-			return reconcile.Result{Requeue: true}, err
+	syncAll := func() error {
+		if err := r.validateVolumeSpec(); err != nil {
+			return err
 		}
+		if err := r.syncVolumePvc(); err!= nil {
+			return err
+		}
+		return nil
 	}
-
-	ret, err := r.volumeReconcile()
-	if err != nil {
-		if err2 := r.updateState(hc.VirtualMachineVolumeStateError); err2 != nil {
+	if err := syncAll(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "FailedCreate", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
-		return ret, err
-	}
-	r.log.Info("Reconciling OK")
-
-	return ret, nil
-}
-
-// fetchVolumeFromName fetches the VirtualMachineVolume instance
-func (r *ReconcileVirtualMachineVolume) fetchVolumeFromName(namespacedName types.NamespacedName) error {
-	v := &hc.VirtualMachineVolume{}
-	if err := r.client.Get(context.Background(), namespacedName, v); err != nil {
-		return err
-	}
-	r.volume = v.DeepCopy()
-	return nil
-}
-
-func (r *ReconcileVirtualMachineVolume) volumeReconcile() (reconcile.Result, error) {
-	// Get virtualMachineImage
-	image := &hc.VirtualMachineImage{}
-	if err := r.client.Get(context.Background(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
-		if errors.IsNotFound(err) {
-			r.log.Info("VirtualMachineImage is not exists")
-			return reconcile.Result{}, goerrors.New("VirtualMachineImage is not exists")
-		}
 		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVirtualMachineVolume) validateVolumeSpec() error {
+	// Validate VirtualMachineImageName
+	image := &hc.VirtualMachineImage{}
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
+		if errors.IsNotFound(err){
+			return goerrors.New("VirtualMachineImage is not exists")
+		}
+		return err
 	}
 
 	// Check virtualMachineImage state is available
 	found, cond := util.GetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse)
 	if !found || cond.Status != corev1.ConditionTrue {
-		r.log.Info("VirtualMachineImage state is not available")
-		return reconcile.Result{}, goerrors.New("VirtualMachineImage state is not available")
+		klog.Info("VirtualMachineImage state is not available")
+		return goerrors.New("VirtualMachineImage state is not available")
 	}
-	// Check pvc size
+
+	// Validate Capacity
 	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
 	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
-
-	// Volume pvc size should not be smaller than image pvc size
 	if volumePvcSize.Value() < imagePvcSize.Value() {
-		r.log.Info("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size", "VirtualMachineImage size is", imagePvcSize, "Requested size is", volumePvcSize)
-		return reconcile.Result{}, goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
+		return goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
 	}
-
-	// Get virtualMachineVolume pvc
-	pvc := &corev1.PersistentVolumeClaim{}
-	if err := r.client.Get(context.Background(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
-		Namespace: r.volume.Namespace}, pvc); err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		// VirtualMachineVolume pvc is not found. Creating a new one.
-		_, err := r.createVolumePvc(image)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else {
-		// Check volume pvc status
-		if pvc.Status.Phase == corev1.ClaimBound {
-			// Restoring successful. Change state to Available
-			if r.volume.Status.State != hc.VirtualMachineVolumeStateAvailable {
-				if err := r.updateState(hc.VirtualMachineVolumeStateAvailable); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-		} else if pvc.Status.Phase == corev1.ClaimLost {
-			return reconcile.Result{}, goerrors.New("PVC is lost")
-		}
-	}
-
-	return reconcile.Result{}, nil
+	return nil
 }
 
-func (r *ReconcileVirtualMachineVolume) updateState(state hc.VirtualMachineVolumeState) error {
-	r.log.Info("Update VirtualMachineVolume state", "from", r.volume.Status.State, "to", state)
+// updateStateWithReadyToUse updates readyToUse condition type and State.
+func (r *ReconcileVirtualMachineVolume) updateStateWithReadyToUse(state hc.VirtualMachineVolumeState, readyToUseStatus corev1.ConditionStatus,
+	reason, message string) error {
+	r.volume.Status.Conditions = util.SetConditionByType(r.volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse, readyToUseStatus, reason, message)
 	r.volume.Status.State = state
-	err := r.client.Status().Update(context.Background(), r.volume)
-	if err != nil {
-		r.log.Info("Failed to update virtual machine volume state")
-	}
-	return err
+	return r.client.Status().Update(context.TODO(), r.volume)
 }

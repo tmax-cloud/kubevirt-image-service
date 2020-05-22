@@ -21,7 +21,7 @@ type VirtualMachineVolumeSpec struct {
 	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
 }
 
-// VirtualMachineVolumeState is the current state of VirtualMachineVolume
+// VirtualMachineVolumeState is a short string representation of the current VirtualMachineVolume state
 type VirtualMachineVolumeState string
 
 const (
@@ -33,10 +33,18 @@ const (
 	VirtualMachineVolumeStateError VirtualMachineVolumeState = "Error"
 )
 
-// VirtualMachineVolumeStatus defines the observed state of VirtualMachineVolume
+const (
+	// VirtualMachineVolumeConditionReadyToUse indicated VirtualMachineVolume is ready to use
+	VirtualMachineVolumeConditionReadyToUse = "ReadyToUse"
+)
+
+// VirtualMachineVolumeStatus defines the observed status of VirtualMachineVolume
 type VirtualMachineVolumeStatus struct {
 	// State is the current state of VirtualMachineVolume
 	State VirtualMachineVolumeState `json:"state"`
+	// Conditions indicate current conditions of VirtualMachineVolume
+	// +optional
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -45,6 +53,7 @@ type VirtualMachineVolumeStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=virtualmachinevolumes,scope=Namespaced,shortName=vmv
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="Current state of VirtualMachineVolume"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type VirtualMachineVolume struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

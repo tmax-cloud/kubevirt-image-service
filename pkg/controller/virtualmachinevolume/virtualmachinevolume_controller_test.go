@@ -3,134 +3,215 @@ package virtualmachinevolume
 import (
 	"context"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
-	img "kubevirt-image-service/pkg/controller/virtualmachineimage"
 	"kubevirt-image-service/pkg/util"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Volume reconcile loop", func() {
-	table.DescribeTable("Should reconcile volume status against volume pvc phases", func(expected hc.VirtualMachineVolumeState, pvcPhase corev1.PersistentVolumeClaimPhase) {
-		image := newImage()
-		image.Status.Conditions = util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "Reason", "message")
-		pvc := newPvc()
-		pvc.Status.Phase = pvcPhase
-		r := newReconcileVolume(newVolume(), image, pvc)
+var _ = Describe("Reconcile", func() {
+	Context("1. with no image", func() {
+		r := createFakeReconcileVmv()
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
-		_, _ = r.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}})
-		vmv := &hc.VirtualMachineVolume{}
-		_ = r.client.Get(context.TODO(), types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}, vmv)
-		Expect(vmv.Status.State).To(Equal(expected))
-	},
-		table.Entry("should be available state when pvc is bound", hc.VirtualMachineVolumeStateAvailable, corev1.ClaimBound),
-		table.Entry("should be creating state when pvc is pending", hc.VirtualMachineVolumeStateCreating, corev1.ClaimPending),
-		table.Entry("should be error state when pvc is lost", hc.VirtualMachineVolumeStateError, corev1.ClaimLost),
-	)
-})
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("Should not create pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+				Namespace: r.volume.Namespace}, pvc)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+		It("Should update state to error", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+		})
+		It("Should update condition readyToUse to false", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range volume.Status.Conditions {
+				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
+	})
 
-var _ = Describe("Get volume", func() {
-	It("Should get a virtualMachineVolume with the NamespacedName", func() {
-		r := newReconcileVolume(newVolume())
+	Context("2. with false status image", func() {
+		image := newTestImage()
+		util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use")
+		r := createFakeReconcileVmv(image)
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: "myvmv", Namespace: "mynamespace"}, &hc.VirtualMachineVolume{})
-		Expect(err).ToNot(HaveOccurred())
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("Should not create pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+				Namespace: r.volume.Namespace}, pvc)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+		It("Should update state to error", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+		})
+		It("Should update condition readyToUse to false", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range volume.Status.Conditions {
+				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
+	})
+
+	Context("3. with nil status image", func() {
+		image := newTestImage()
+		r := createFakeReconcileVmv(image)
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
+
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("Should not create pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+				Namespace: r.volume.Namespace}, pvc)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+		It("Should update state to error", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+		})
+		It("Should update condition readyToUse to false", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range volume.Status.Conditions {
+				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
+	})
+
+	Context("4. with true status, invalid size image", func() {
+		image := newTestImage()
+		image.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("7Gi")
+		util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use")
+		r := createFakeReconcileVmv(image)
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
+
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("Should not create pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+				Namespace: r.volume.Namespace}, pvc)
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		})
+		It("Should update state to error", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+		})
+		It("Should update condition readyToUse to false", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range volume.Status.Conditions {
+				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
+	})
+
+	Context("5. with true status, valid size image", func() {
+		r := createFakeReconcileVolumeWithImage()
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
+
+		It("Should not return error", func() {
+			Expect(err).Should(BeNil())
+		})
+		It("Should create pvc", func() {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: GetVolumePvcName(r.volume.Name),
+				Namespace: r.volume.Namespace}, pvc)
+			Expect(err).Should(BeNil())
+		})
+		It("Should update state to creating", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateCreating))
+		})
+		It("Should update condition readyToUse to false", func() {
+			volume := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range volume.Status.Conditions {
+				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(volume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
+	})
+
+	Context("6. with valid image, lost phase pvc", func() {
+		pvc := newTestPvc()
+		pvc.Status.Phase = corev1.ClaimLost
+		r := createFakeReconcileVolumeWithImage(pvc)
+		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
+
+		It("Should return error", func() {
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("Should update state to error", func() {
+			vmv := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, vmv)
+			Expect(err).Should(BeNil())
+			Expect(vmv.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+		})
+		It("Should update condition readyToUse to false", func() {
+			vmv := &hc.VirtualMachineVolume{}
+			err = r.client.Get(context.TODO(), testVolumeNamespacedName, vmv)
+			Expect(err).Should(BeNil())
+			// clear lastTransitionTime for easy comparison
+			for i := range vmv.Status.Conditions {
+				vmv.Status.Conditions[i].LastTransitionTime = v1.Time{}
+			}
+			found, cond := util.GetConditionByType(vmv.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+		})
 	})
 })
-
-func newImage() *hc.VirtualMachineImage {
-	return &hc.VirtualMachineImage{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "myvmi",
-			Namespace: "mynamespace",
-		},
-		Spec: hc.VirtualMachineImageSpec{
-			Source: hc.VirtualMachineImageSource{
-				HTTP: "https://kr.tmaxsoft.com/main.do",
-			},
-			PVC: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteOnce,
-				},
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("3Gi"),
-					},
-				},
-			},
-		},
-	}
-}
-
-func newPvc() *corev1.PersistentVolumeClaim {
-	apiGroup := "snapshot.storage.k8s.io"
-	storageClass := "rook-ceph-block"
-	volumeMode := corev1.PersistentVolumeBlock
-
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      GetVolumePvcName("myvmv"),
-			Namespace: "mynamespace",
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: &storageClass,
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
-			},
-			VolumeMode: &volumeMode,
-			DataSource: &corev1.TypedLocalObjectReference{
-				APIGroup: &apiGroup,
-				Kind:     "VolumeSnapshot",
-				Name:     img.GetSnapshotNameFromVmiName("myvmi"),
-			},
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("3Gi"),
-				},
-			},
-		},
-	}
-}
-
-func newVolume() *hc.VirtualMachineVolume {
-	return &hc.VirtualMachineVolume{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "myvmv",
-			Namespace: "mynamespace",
-		},
-		Spec: hc.VirtualMachineVolumeSpec{
-			VirtualMachineImage: hc.VirtualMachineImageName{
-				Name: "myvmi",
-			},
-			Capacity: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("3Gi"),
-			},
-		},
-	}
-}
-
-func newReconcileVolume(objects ...runtime.Object) *ReconcileVirtualMachineVolume {
-	v := newVolume()
-	s := scheme.Scheme
-	err := hc.SchemeBuilder.AddToScheme(s)
-	Expect(err).ToNot(HaveOccurred())
-
-	var objs []runtime.Object
-	objs = append(objs, objects...)
-	cl := fake.NewFakeClientWithScheme(s, objs...)
-
-	return &ReconcileVirtualMachineVolume{
-		client: cl,
-		scheme: s,
-		volume: v,
-		log:    log.WithName("unit-test"),
-	}
-}

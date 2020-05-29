@@ -13,7 +13,7 @@ import (
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 )
 
-// 번호		pvc		annoation		snapshot
+// 번호		pvc		annotation		snapshot
 // 1		X
 // 2		O		X
 // 3		O		no				X

@@ -2,6 +2,7 @@ package virtualmachineimage
 
 import (
 	"context"
+	goerrors "errors"
 	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,6 +78,9 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 	r.vmi = cachedVmi.DeepCopy()
 
 	syncAll := func() error {
+		if err := r.validateVirtualMachineImageSpec(); err != nil {
+			return err
+		}
 		// pvc가 없으면 상태를 업데이트하고 pvc를 생성한다.
 		if err := r.syncPvc(); err != nil {
 			return err
@@ -113,4 +117,16 @@ func (r *ReconcileVirtualMachineImage) updateStateWithReadyToUse(vmi *hc.Virtual
 	vmi.Status.ReadyToUse = &readyToUse
 	vmi.Status.State = state
 	return r.client.Status().Update(context.TODO(), vmi)
+}
+
+func (r *ReconcileVirtualMachineImage) validateVirtualMachineImageSpec() error {
+	if r.vmi.Spec.PVC.VolumeMode == nil || *r.vmi.Spec.PVC.VolumeMode != corev1.PersistentVolumeBlock {
+		return goerrors.New("VolumeMode in pvc is invalid. Only 'Block' can be used")
+	}
+
+	_, found := r.vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+	if !found {
+		return goerrors.New("storage request in pvc is missing")
+	}
+	return nil
 }

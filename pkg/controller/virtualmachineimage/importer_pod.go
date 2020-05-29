@@ -99,11 +99,8 @@ func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev
 		return nil, err
 	}
 
-	pvcSize, found := vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
-	if !found {
-		return nil, errors.NewBadRequest("storage request in pvc is missing")
-	}
-
+	// virtual machine image spec의 pvc storage는 필수 값이다.
+	pvcSize := vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
 	ip := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      GetImporterPodNameFromVmiName(vmi.Name),

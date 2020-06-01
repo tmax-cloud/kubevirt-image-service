@@ -43,7 +43,7 @@ function build() {
 }
 
 function minikube() {
-  sudo minikube delete
+  CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube delete
   sudo rm -rf /var/lib/rook
   CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
   kubectl apply -f hack/kube-registry.yaml
@@ -58,7 +58,7 @@ function minikube() {
 }
 
 function minikube_clean() {
-  sudo minikube delete
+  CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube delete
   sudo rm -rf /var/lib/rook
 }
 

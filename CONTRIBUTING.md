@@ -2,7 +2,7 @@
 
 ## 개발 워크플로우
 
-![개발 워크플로우](./assets/workflow.png)
+![개발 워크플로우](docs/assets/workflow.png)
 
 1. 개발 환경을 생성합니다. Minikube none 드라이버로 rook을 포함해서 구축됩니다.
 2. 개발을 진행합니다. 개발 시 유닛, e2e 테스트를 포함해서 개발해야 합니다.

@@ -1,4 +1,4 @@
-# kubevirt-image-service
+# kubevirt-image-service ![kubevirt-image-service](https://github.com/tmax-cloud/kubevirt-image-service/workflows/kubevirt-image-service/badge.svg)
 ## kubevirt-image-service란?
 kubevirt-image-service(이하 kis)는 kubevirt에 통합되는 이미지, 볼륨 서비스를 제공합니다. (TODO: 데모)
 

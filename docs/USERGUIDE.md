@@ -1,6 +1,6 @@
 # 유저 가이드
 
-![이미지설명](../assets/kubevirt_image_service.png)
+![이미지설명](assets/kubevirt_image_service.png)
 
 kubevirt-image-service는 Kubevirt에 통합되는 가상머신 이미지/볼륨 서비스를 제공합니다.
 

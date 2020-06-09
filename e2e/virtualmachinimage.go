@@ -36,6 +36,9 @@ func virtualMachineImageTest(t *testing.T, ctx *framework.Context) error {
 	if err := testVmiWithInvalidSnapshotClassName(t, ns); err != nil {
 		return err
 	}
+	if err := testVmiWithPvcRwx(t, ns); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -56,6 +59,16 @@ func testVmiWithInvalidSnapshotClassName(t *testing.T, namespace string) error {
 		return err
 	}
 	return waitForVmiStateError(t, namespace, vmiName)
+}
+
+func testVmiWithPvcRwx(t *testing.T, namespace string) error {
+	vmiName := "rwxvmi"
+	vmi := newVmi(namespace, vmiName)
+	vmi.Spec.PVC.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
+	if err := framework.Global.Client.Create(context.Background(), vmi, &cleanupOptions); err != nil {
+		return err
+	}
+	return waitForVmi(t, namespace, vmiName)
 }
 
 func waitForVmi(t *testing.T, namespace, name string) error {

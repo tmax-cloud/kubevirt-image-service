@@ -1,5 +1,8 @@
 name: kubevirt-image-service
 on:
+  push:
+    branches:
+      - master
   pull_request:
 jobs:
   static:

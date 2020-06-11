@@ -55,5 +55,5 @@ jobs:
           ./testbox build
       - name: push
         run: |
-          docker tag quay.io/woohhan/sample-mysql-operator:canary quay.io/woohhan/sample-mysql-operator:latest
-          docker push quay.io/woohhan/sample-mysql-operator:latest
+          docker tag quay.io/tmaxanc/kubevirt-image-service:canary quay.io/tmaxanc/kubevirt-image-service:latest
+          docker push quay.io/tmaxanc/kubevirt-image-service:canary:latest

@@ -53,4 +53,4 @@ jobs:
       - name: push
         run: |
           docker tag quay.io/tmaxanc/kubevirt-image-service:canary quay.io/tmaxanc/kubevirt-image-service:latest
-          docker push quay.io/tmaxanc/kubevirt-image-service:canary:latest
+          docker push quay.io/tmaxanc/kubevirt-image-service:latest

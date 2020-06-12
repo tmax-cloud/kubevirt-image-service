@@ -43,8 +43,8 @@ type VirtualMachineVolumeExportState string
 const (
 	// VirtualMachineVolumeExportStateCreating indicates VirtualMachineVolumeExport is creating
 	VirtualMachineVolumeExportStateCreating VirtualMachineVolumeExportState = "Creating"
-	// VirtualMachineVolumeExportStateExportCompleted indicates the exporter pod is completed
-	VirtualMachineVolumeExportStateExportCompleted VirtualMachineVolumeExportState = "ExportCompleted"
+	// VirtualMachineVolumeExportStateCompleted indicates the pvc export is completed
+	VirtualMachineVolumeExportStateCompleted VirtualMachineVolumeExportState = "Completed"
 	// VirtualMachineVolumeExportStateError indicates VirtualMachineVolumeExport is error
 	VirtualMachineVolumeExportStateError VirtualMachineVolumeExportState = "Error"
 )

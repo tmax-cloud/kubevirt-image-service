@@ -40,7 +40,7 @@ func (r *ReconcileVirtualMachineVolumeExport) syncLocalPod() error {
 		if err := r.client.Create(context.TODO(), newPod); err != nil && !errors.IsAlreadyExists(err) {
 			return err
 		}
-		if err := r.updateStateWithReadyToUse(r.vmvExport, true, hc.VirtualMachineVolumeExportStateExportCompleted); err != nil {
+		if err := r.updateStateWithReadyToUse(r.vmvExport, true, hc.VirtualMachineVolumeExportStateCompleted); err != nil {
 			return err
 		}
 	} else if !completed && existsLocalPod {

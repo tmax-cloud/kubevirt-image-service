@@ -39,7 +39,7 @@ func virtualMachineVolumeExportStateAvailableTest(t *testing.T, cleanupOptions *
 		return err
 	}
 
-	if err := waitForVmveState(t, ns, vmveName, hc.VirtualMachineVolumeExportStateExportCompleted); err != nil {
+	if err := waitForVmveState(t, ns, vmveName, hc.VirtualMachineVolumeExportStateCompleted); err != nil {
 		return err
 	}
 	t.Logf("Vmve %s available\n", vmveName)

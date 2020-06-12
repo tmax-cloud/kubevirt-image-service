@@ -2,9 +2,17 @@
 
 ## 1.0.0
 
-### 기능 추가
-- HTTP로 부터 qcow2 이미지를 받아 VirtualMachineImage 생성 하는 기능 추가
-- VirtualMachineImage 로부터 VM 이 사용할 볼륨 생성 기능 추가
+### Features:
 
-### 버그 픽스
-없음
+- Implement VirtualMachineImage CR to import image from HTTP source 
+- Implement VirtualMachineVolume CR to create volume for VM from image
+- Implement VirtualMachineExport CR to export volume to local destination
+
+### Enhancements:
+
+- Update operator-sdk version from v0.17.0 to v0.17.1
+- Apply condition array to each CRs' status 
+
+### Bug Fixs:
+
+- Modify to use accessMode RWO when creating scratch pvc for VirtualMachineImage

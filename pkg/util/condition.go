@@ -4,7 +4,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
-	"time"
 )
 
 // GetConditionByType returns a condition with conditionType. The condition returned is a clone, so changing it does not change the original conditions[]
@@ -26,13 +25,13 @@ func SetConditionByType(conditions []v1alpha1.Condition, conditionType string, s
 		conditions[i].Status = status
 		conditions[i].Reason = reason
 		conditions[i].Message = message
-		conditions[i].LastTransitionTime = metav1.NewTime(time.Now())
+		conditions[i].LastTransitionTime = metav1.Now()
 		return conditions
 	}
 	return append(conditions, v1alpha1.Condition{
 		Type:               conditionType,
 		Status:             status,
-		LastTransitionTime: metav1.NewTime(time.Now()),
+		LastTransitionTime: metav1.Now(),
 		Reason:             reason,
 		Message:            message,
 	})

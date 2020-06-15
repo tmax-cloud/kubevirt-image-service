@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -100,11 +101,8 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		return nil
 	}
 	if err := syncAll(); err != nil {
-		readyToUse := false
-		r.vmi.Status.ReadyToUse = &readyToUse
-		r.vmi.Status.State = hc.VirtualMachineImageStateError
-		r.vmi.Status.ErrorMessage = err.Error()
-		if err2 := r.client.Status().Update(context.TODO(), r.vmi); err2 != nil {
+		// TODO: Setup Error reason
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineImageStateError, corev1.ConditionFalse, "SeeMessages", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
@@ -112,18 +110,18 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 	return reconcile.Result{}, nil
 }
 
-// updateStateWithReadyToUse 는 readyToUse와 State를 업데이트 한다. 다른 Status 필드에는 영향을 미치지 않는다. vmi는 캐시를 오염시키지 않기 위해 반드시 DeepCopy 되어 있어야 한다.
-func (r *ReconcileVirtualMachineImage) updateStateWithReadyToUse(vmi *hc.VirtualMachineImage, readyToUse bool, state hc.VirtualMachineImageState) error {
-	vmi.Status.ReadyToUse = &readyToUse
-	vmi.Status.State = state
-	return r.client.Status().Update(context.TODO(), vmi)
+// updateStateWithReadyToUse updates readyToUse and State. Other Status fields are not affected. vmi must be DeepCopy to avoid polluting the cache.
+func (r *ReconcileVirtualMachineImage) updateStateWithReadyToUse(state hc.VirtualMachineImageState, readyToUseStatus corev1.ConditionStatus,
+	reason, message string) error {
+	r.vmi.Status.Conditions = util.SetConditionByType(r.vmi.Status.Conditions, hc.ConditionReadyToUse, readyToUseStatus, reason, message)
+	r.vmi.Status.State = state
+	return r.client.Status().Update(context.TODO(), r.vmi)
 }
 
 func (r *ReconcileVirtualMachineImage) validateVirtualMachineImageSpec() error {
 	if r.vmi.Spec.PVC.VolumeMode == nil || *r.vmi.Spec.PVC.VolumeMode != corev1.PersistentVolumeBlock {
 		return goerrors.New("VolumeMode in pvc is invalid. Only 'Block' can be used")
 	}
-
 	_, found := r.vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
 	if !found {
 		return goerrors.New("storage request in pvc is missing")

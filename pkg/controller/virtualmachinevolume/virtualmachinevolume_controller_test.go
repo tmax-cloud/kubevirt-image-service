@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	img "kubevirt-image-service/pkg/controller/virtualmachineimage"
+	"kubevirt-image-service/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -20,8 +21,7 @@ import (
 var _ = Describe("Volume reconcile loop", func() {
 	table.DescribeTable("Should reconcile volume status against volume pvc phases", func(expected hc.VirtualMachineVolumeState, pvcPhase corev1.PersistentVolumeClaimPhase) {
 		image := newImage()
-		t := true
-		image.Status.ReadyToUse = &t
+		image.Status.Conditions = util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "Reason", "message")
 		pvc := newPvc()
 		pvc.Status.Phase = pvcPhase
 		r := newReconcileVolume(newVolume(), image, pvc)

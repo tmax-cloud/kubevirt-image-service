@@ -44,7 +44,7 @@ func (r *ReconcileVirtualMachineImage) syncSnapshot() error {
 			return goerrors.New("Snapshot is error for vmi " + r.vmi.Name)
 		} else if snapshot.Status.ReadyToUse {
 			// 임포트 되어 있고 스냅샷도 있다면 스냅샷의 readyToUse에 따라 상태를 변경한다.
-			if err := r.updateStateWithReadyToUse(r.vmi, true, hc.VirtualMachineImageStateAvailable); err != nil {
+			if err := r.updateStateWithReadyToUse(hc.VirtualMachineImageStateAvailable, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use"); err != nil {
 				return err
 			}
 		}

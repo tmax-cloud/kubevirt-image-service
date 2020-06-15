@@ -29,6 +29,11 @@ const (
 	VirtualMachineImageStateError VirtualMachineImageState = "Error"
 )
 
+const (
+	// ConditionReadyToUse indicated vmi is ready to use
+	ConditionReadyToUse = "ReadyToUse"
+)
+
 // VirtualMachineImageConditionType defines the condition of VirtualMachineImage
 type VirtualMachineImageConditionType string
 
@@ -36,11 +41,9 @@ type VirtualMachineImageConditionType string
 type VirtualMachineImageStatus struct {
 	// State is the current state of VirtualMachineImage
 	State VirtualMachineImageState `json:"state"`
+	// Conditions indicate current conditions of VirtualMachineImage
 	// +optional
-	ReadyToUse *bool `json:"readyToUse,omitempty"`
-	// Human-readable message indicating details about last transition.
-	// +optional
-	ErrorMessage string `json:"errorMessage,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

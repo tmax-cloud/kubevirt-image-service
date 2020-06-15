@@ -21,7 +21,7 @@ func (r *ReconcileVirtualMachineImage) syncPvc() error {
 	}
 
 	klog.Infof("Create a new pvc for vmi %s", r.vmi.Name)
-	if err := r.updateStateWithReadyToUse(r.vmi, false, hc.VirtualMachineImageStateCreating); err != nil {
+	if err := r.updateStateWithReadyToUse(hc.VirtualMachineImageStateCreating, corev1.ConditionFalse, "VmiIsCreating", "VMI is in creating"); err != nil {
 		return err
 	}
 

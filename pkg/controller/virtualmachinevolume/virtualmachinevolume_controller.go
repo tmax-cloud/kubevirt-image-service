@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -128,7 +129,8 @@ func (r *ReconcileVirtualMachineVolume) volumeReconcile() (reconcile.Result, err
 	}
 
 	// Check virtualMachineImage state is available
-	if image.Status.ReadyToUse == nil || !*image.Status.ReadyToUse {
+	found, cond := util.GetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse)
+	if !found || cond.Status != corev1.ConditionTrue {
 		r.log.Info("VirtualMachineImage state is not available")
 		return reconcile.Result{}, goerrors.New("VirtualMachineImage state is not available")
 	}

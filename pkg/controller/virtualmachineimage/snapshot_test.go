@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 )
 
 // 번호		pvc		annotation		snapshot
@@ -138,7 +139,9 @@ var _ = Describe("syncSnapshot", func() {
 			vmi := &hc.VirtualMachineImage{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: r.vmi.Name}, vmi)
 			Expect(err).Should(BeNil())
-			Expect(*vmi.Status.ReadyToUse).Should(BeTrue())
+			found, cond := util.GetConditionByType(vmi.Status.Conditions, hc.ConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionTrue))
 		})
 	})
 

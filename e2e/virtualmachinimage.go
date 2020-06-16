@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	goerrors "errors"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -12,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"kubevirt-image-service/pkg/apis"
 	"kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 	"testing"
 )
 
@@ -68,10 +68,12 @@ func waitForVmi(t *testing.T, namespace, name string) error {
 			}
 			return false, err
 		}
-		if vmi.Status.State == v1alpha1.VirtualMachineImageStateError {
-			return false, goerrors.New(vmi.Status.ErrorMessage)
+		found, cond := util.GetConditionByType(vmi.Status.Conditions, v1alpha1.ConditionReadyToUse)
+		if found {
+			// TODO: check error condition
+			return cond.Status == corev1.ConditionTrue, nil
 		}
-		return *vmi.Status.ReadyToUse, nil
+		return false, nil
 	})
 }
 

@@ -52,15 +52,19 @@ func getScratchPvcNameFromVmiName(vmiName string) string {
 }
 
 func newScratchPvc(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev1.PersistentVolumeClaim, error) {
+	volumeMode := corev1.PersistentVolumeFilesystem
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getScratchPvcNameFromVmiName(vmi.Name),
 			Namespace: vmi.Namespace,
 		},
-		Spec: vmi.Spec.PVC,
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeMode:       &volumeMode,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources:        vmi.Spec.PVC.Resources,
+			StorageClassName: vmi.Spec.PVC.StorageClassName,
+		},
 	}
-	volumeMode := corev1.PersistentVolumeFilesystem
-	pvc.Spec.VolumeMode = &volumeMode
 	if err := controllerutil.SetControllerReference(vmi, pvc, scheme); err != nil {
 		return nil, err
 	}

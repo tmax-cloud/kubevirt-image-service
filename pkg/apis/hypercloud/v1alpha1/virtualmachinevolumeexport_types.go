@@ -30,12 +30,15 @@ type VirtualMachineVolumeExportDestinationLocal struct{}
 type VirtualMachineVolumeExportStatus struct {
 	// State is the current state of VirtualMachineVolumeExport
 	State VirtualMachineVolumeExportState `json:"state"`
+	// Conditions indicate current conditions of VirtualMachineVolumeExport
 	// +optional
-	ReadyToUse *bool `json:"readyToUse,omitempty"`
-	// Human-readable message indicating details about last transition.
-	// +optional
-	ErrorMessage string `json:"errorMessage,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
+
+const (
+	// VirtualMachineVolumeExportConditionReadyToUse indicated vmvExport is ready to use
+	VirtualMachineVolumeExportConditionReadyToUse = "ReadyToUse"
+)
 
 // VirtualMachineVolumeExportState is the current state of the VirtualMachineVolumeExport
 type VirtualMachineVolumeExportState string

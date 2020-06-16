@@ -4,6 +4,7 @@ import (
 	"context"
 	"kubevirt-image-service/pkg/apis"
 	"kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 	"testing"
 
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
@@ -16,20 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func virtualMachineVolumeExportTest(t *testing.T, ctx *framework.Context) {
+func virtualMachineVolumeExportTest(t *testing.T, ctx *framework.Context) error {
 	ns, err := ctx.GetWatchNamespace()
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	vmve := &v1alpha1.VirtualMachineVolumeExport{}
-	if err = framework.AddToFrameworkScheme(apis.AddToScheme, vmve); err != nil {
-		t.Fatal(err)
+	if err := framework.AddToFrameworkScheme(apis.AddToScheme, vmve); err != nil {
+		return err
 	}
 
-	if err = virtualMachineVolumeExportStateAvailableTest(t, &cleanupOptions, ns); err != nil {
-		t.Log(err)
-		t.Fatal(err)
+	if err := virtualMachineVolumeExportStateAvailableTest(t, &cleanupOptions, ns); err != nil {
+		return err
 	}
+	return nil
 }
 
 func virtualMachineVolumeExportStateAvailableTest(t *testing.T, cleanupOptions *framework.CleanupOptions, ns string) error {
@@ -39,7 +40,7 @@ func virtualMachineVolumeExportStateAvailableTest(t *testing.T, cleanupOptions *
 		return err
 	}
 
-	if err := waitForVmveState(t, ns, vmveName, hc.VirtualMachineVolumeExportStateCompleted); err != nil {
+	if err := waitForVmveState(t, ns, vmveName); err != nil {
 		return err
 	}
 	t.Logf("Vmve %s available\n", vmveName)
@@ -53,7 +54,7 @@ func virtualMachineVolumeExportStateAvailableTest(t *testing.T, cleanupOptions *
 	return nil
 }
 
-func waitForVmveState(t *testing.T, namespace, name string, state hc.VirtualMachineVolumeExportState) error {
+func waitForVmveState(t *testing.T, namespace, name string) error {
 	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		t.Logf("Waiting for creating vmve: %s in Namespace: %s \n", name, namespace)
 		vmve := &hc.VirtualMachineVolumeExport{}
@@ -63,8 +64,12 @@ func waitForVmveState(t *testing.T, namespace, name string, state hc.VirtualMach
 			}
 			return false, err
 		}
-		t.Logf("Waiting for %s of %s vmve\n", state, name)
-		return vmve.Status.State == state, nil
+		found, cond := util.GetConditionByType(vmve.Status.Conditions, v1alpha1.VirtualMachineVolumeExportConditionReadyToUse)
+		if found {
+			// TODO: check error condition
+			return cond.Status == corev1.ConditionTrue, nil
+		}
+		return false, nil
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -117,11 +118,7 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 		return nil
 	}
 	if err := syncAll(); err != nil {
-		readyToUse := false
-		r.vmvExport.Status.ReadyToUse = &readyToUse
-		r.vmvExport.Status.State = hc.VirtualMachineVolumeExportStateError
-		r.vmvExport.Status.ErrorMessage = err.Error()
-		if err2 := r.client.Status().Update(context.TODO(), r.vmvExport); err2 != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStateError, corev1.ConditionFalse, "VmvExportIsInError", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
@@ -137,11 +134,12 @@ func (r *ReconcileVirtualMachineVolumeExport) getDestination() string {
 	return destination
 }
 
-// updateStateWithReadyToUse updates readytouse and state. Other Status fields are not affected. vmvExport must be DeepCopy to avoid polluting the cache.
-func (r *ReconcileVirtualMachineVolumeExport) updateStateWithReadyToUse(vmvExport *hc.VirtualMachineVolumeExport, readyToUse bool, state hc.VirtualMachineVolumeExportState) error {
-	vmvExport.Status.ReadyToUse = &readyToUse
-	vmvExport.Status.State = state
-	return r.client.Status().Update(context.TODO(), vmvExport)
+// updateStateWithReadyToUse updates conditions and state. Other Status fields are not affected. vmvExport must be DeepCopy to avoid polluting the cache.
+func (r *ReconcileVirtualMachineVolumeExport) updateStateWithReadyToUse(state hc.VirtualMachineVolumeExportState, readyToUseStatus corev1.ConditionStatus,
+	reason, message string) error {
+	r.vmvExport.Status.Conditions = util.SetConditionByType(r.vmvExport.Status.Conditions, hc.VirtualMachineVolumeExportConditionReadyToUse, readyToUseStatus, reason, message)
+	r.vmvExport.Status.State = state
+	return r.client.Status().Update(context.TODO(), r.vmvExport)
 }
 
 func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() error {

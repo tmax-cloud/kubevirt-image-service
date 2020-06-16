@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
+	"kubevirt-image-service/pkg/util"
 )
 
 // no.		pvc		completed		localPod
@@ -126,7 +127,9 @@ var _ = Describe("syncLocalPod", func() {
 			vmvExport := &hc.VirtualMachineVolumeExport{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmvExport.Namespace, Name: r.vmvExport.Name}, vmvExport)
 			Expect(err).Should(BeNil())
-			Expect(*vmvExport.Status.ReadyToUse).Should(BeTrue())
+			found, cond := util.GetConditionByType(vmvExport.Status.Conditions, hc.VirtualMachineVolumeExportConditionReadyToUse)
+			Expect(found).Should(BeTrue())
+			Expect(cond.Status).Should(Equal(corev1.ConditionTrue))
 		})
 	})
 

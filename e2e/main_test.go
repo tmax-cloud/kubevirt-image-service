@@ -27,7 +27,9 @@ func TestKubevirtImageService(t *testing.T) {
 		t.Fatal(err)
 	}
 	virtualMachineVolumeTest(t, ctx)
-	virtualMachineVolumeExportTest(t, ctx)
+	if err := virtualMachineVolumeExportTest(t, ctx); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func deployResources(t *testing.T, ctx *framework.Context) error {

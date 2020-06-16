@@ -29,7 +29,7 @@ func (r *ReconcileVirtualMachineVolumeExport) syncExportPvc() error {
 	}
 
 	klog.Infof("Create a new pvc for vmvExport %s", r.vmvExport.Name)
-	if err2 := r.updateStateWithReadyToUse(r.vmvExport, false, hc.VirtualMachineVolumeExportStateCreating); err2 != nil {
+	if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStateCreating, corev1.ConditionFalse, "VmvExportIsCreating", "VmvExport is in creating"); err2 != nil {
 		return err2
 	}
 

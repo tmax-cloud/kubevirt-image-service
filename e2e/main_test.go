@@ -1,10 +1,11 @@
 package e2e
 
 import (
+	"testing"
+
 	"github.com/operator-framework/operator-sdk/pkg/test"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -26,6 +27,9 @@ func TestKubevirtImageService(t *testing.T) {
 		t.Fatal(err)
 	}
 	virtualMachineVolumeTest(t, ctx)
+	if err := virtualMachineVolumeExportTest(t, ctx); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func deployResources(t *testing.T, ctx *framework.Context) error {

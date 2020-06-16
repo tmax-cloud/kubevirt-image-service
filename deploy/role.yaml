@@ -71,6 +71,7 @@ rules:
   resources:
   - '*'
   - virtualmachinevolumes
+  - virtualmachinevolumeexports
   verbs:
   - create
   - delete

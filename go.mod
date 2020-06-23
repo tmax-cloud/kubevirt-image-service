@@ -3,7 +3,6 @@ module kubevirt-image-service
 go 1.13
 
 require (
-	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/kr/text v0.2.0 // indirect

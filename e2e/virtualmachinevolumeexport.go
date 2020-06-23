@@ -86,7 +86,7 @@ func newVmve(ns, vmveName string) *hc.VirtualMachineVolumeExport {
 		},
 		Spec: v1alpha1.VirtualMachineVolumeExportSpec{
 			VirtualMachineVolume: v1alpha1.VirtualMachineVolumeSource{
-				Name: "testvmv",
+				Name: "availvmv",
 			},
 			Destination: v1alpha1.VirtualMachineVolumeExportDestination{
 				Local: &local,

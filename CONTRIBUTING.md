@@ -1,24 +1,20 @@
 # Contributing
 
-## 개발 워크플로우
+## Development Workflow
 
-![개발 워크플로우](docs/assets/workflow.png)
+![dev workflow](docs/assets/workflow_eng.png)
 
-1. 개발 환경을 생성합니다. Minikube none 드라이버로 rook을 포함해서 구축됩니다.
-2. 개발을 진행합니다. 개발 시 유닛, e2e 테스트를 포함해서 개발해야 합니다.
-3. 로컬 테스트를 진행합니다. dbox를 사용해서 테스트할 수 있습니다.
-4. 스태틱 테스트를 진행합니다.
-5. e2e 테스트를 진행합니다.
+1. Setup a local development environment by executing following command: `./testbox minikube start`. It will install minikube with none driver option. If you don't have minikube on your machine, you can easily download minikube as well by `./testbox minikube download`.  Then, set up Ceph cluster by executing following command to install rook: `./testbox rook_install`.
+2. Start code. Don't forget to add unit test and e2e test cases.
+3. Test your code locally by executing following command: `./dbox`
+4. Proceed with static test.
+5. Proceed with e2e test.
 
-## 체크리스트
-* [ ] 커밋을 정리하고 적절한 제목/내용을 작성하였는가
-* [ ] 코드 제네레이트를 완료했는가? (`go mod verify`, `operator-sdk generate crds`, `operator-sdk generate k8s`)
-* [ ] [체인지로그](CHANGELOG.md)와 [유저가이드](docs/USERGUIDE.md)를 작성했는가? 
-* [ ] 필요한 유닛 테스트, e2e 테스트를 작성하였는가
-* [ ] CRD Validation
+## PR Checklist
 
-### 주석/로그 작성법
-- TODO
-
-### 테스트 작성법
-- TODO
+* [ ] Commit is organized. Use `git rebase -i` if necessary
+* [ ] Commit message is contain proper subject and body
+* [ ] Code generation is completed (`go mod verify`, `operator-sdk generate crds`, `operator-sdk generate k8s`).  Use `./dbox g` for convenience
+* [ ] CRD is validated
+* [ ] [Change log](CHANGELOG.md) and [user guide](docs/USERGUIDE.md) has been updated when core functionality is affected.
+* [ ] Code is fully tested. Unit test and e2e test should be included.

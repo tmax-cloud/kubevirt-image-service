@@ -107,3 +107,17 @@ spec:
         persistentVolumeClaim:
           claimName: myubuntu-pvc # name of pvc created by volume, {$VmvName}-vmv-pvc
 ```
+
+## Export volume to local destination
+
+vmve is the shortname for `VirtualMachineExport`.
+
+``` shell
+# Deploy export CR
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolumeexport_cr.yaml
+
+# Wait until export is completed
+$ kubectl get vmve
+NAME          STATE
+disk-export   Completed
+```

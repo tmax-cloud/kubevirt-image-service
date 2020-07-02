@@ -6,10 +6,12 @@ Please double check if you meet all preconditions to use kubevirt-image-service.
 
 - official release of kubevirt-image-service is used, NOT THE MASTER BRANCH
 - kubevirt is deployed to launch VMs
-- rook-ceph is deployed (if rbd plugin is used)
 - storage class is deployed
 - volume snapshot class is deployed
 - image, volume, export CRD of kubevirt-image-service is deployed
+- volume snapshotting feature is enabled (if k8s version is below 1.17)
+- ceph-csi version is above `2.0.0` (if ceph-csi is used)
+- rook-ceph is deployed (if rbd plugin is used)
 
 ## Useful commands
 

@@ -13,11 +13,12 @@ Kubevirt-Image-Service (KIS) has 3 custom resources to manage images and volumes
 # Before you begin
 
 - deploy K8s cluster through [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/), [kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/), [kubespray](https://kubernetes.io/docs/setup/production-environment/tools/kubespray/), or [other methods](https://kubernetes.io/docs/setup/)
+  - If K8s version is below `1.17` make sure volume snapshotting feature is enabled. Set the following flag on the API server binary: `--feature-gates=VolumeSnapshotDataSource=true`. Check [this article](https://kubernetes.io/blog/2018/10/09/introducing-volume-snapshot-alpha-for-kubernetes/#kubernetes-snapshots-requirements) for more details.
 - deploy [kubevirt](https://kubevirt.io/pages/cloud.html)
 
 A CSI plugin that can provision volume snapshot is needed. `StorageClass` and `VolumeSnapshotClass` are needed to deploy as well. 
 
-For example, you can use rook-ceph rbd plugin. 
+For example, you can use rook-ceph rbd plugin. In this case, make sure you are using ceph-csi version above `2.0.0`. [A bugfix](https://github.com/rook/rook/issues/4624) for volume snapshot is applied on this version.
 
 - deploy [rook-ceph](https://rook.github.io/docs/rook/master/ceph-quickstart.html)
 - deploy [StorageClass](https://github.com/rook/rook/blob/master/cluster/examples/kubernetes/ceph/csi/rbd/storageclass.yaml)

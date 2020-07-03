@@ -23,19 +23,19 @@ Useful K8s commands to debug issues.
 # rook-ceph is deployed and running (if rbd plugin is used)
 $ kubectl get pod -n rook-ceph
 NAME                                                  READY   STATUS      RESTARTS   AGE
-csi-cephfsplugin-nqhk7                                3/3     Running     12         7d20h
-csi-cephfsplugin-provisioner-74964d6869-ckx58         5/5     Running     23         7d20h
-csi-cephfsplugin-provisioner-74964d6869-glq9p         5/5     Running     22         7d20h
-csi-rbdplugin-dfhtv                                   3/3     Running     12         7d20h
-csi-rbdplugin-provisioner-79cb7f7cb4-5s5wq            6/6     Running     27         7d20h
-csi-rbdplugin-provisioner-79cb7f7cb4-cswnt            6/6     Running     26         7d20h
-rook-ceph-crashcollector-hyeongbin-759985c655-wz4qt   1/1     Running     4          7d20h
-rook-ceph-mgr-a-78ff5fd4d8-4zlnz                      1/1     Running     4          7d20h
-rook-ceph-mon-a-cb86dc6f-j5k24                        1/1     Running     5          7d20h
-rook-ceph-operator-657fb97bf9-7kd8v                   1/1     Running     6          7d20h
-rook-ceph-osd-0-55548bfb69-qc8wx                      1/1     Running     5          7d20h
-rook-ceph-osd-prepare-hyeongbin-px9mf                 0/1     Completed   0          12h
-rook-discover-75pb7                                   1/1     Running     4          7d20h
+csi-cephfsplugin-4fdds                                3/3     Running     0          19h
+csi-cephfsplugin-provisioner-74964d6869-h8g9q         5/5     Running     0          19h
+csi-cephfsplugin-provisioner-74964d6869-vpwh5         5/5     Running     0          19h
+csi-rbdplugin-ph28f                                   3/3     Running     0          19h
+csi-rbdplugin-provisioner-79cb7f7cb4-9p8vd            6/6     Running     0          19h
+csi-rbdplugin-provisioner-79cb7f7cb4-fdh8m            6/6     Running     0          19h
+rook-ceph-crashcollector-hyeongbin-759985c655-pp4f5   1/1     Running     0          19h
+rook-ceph-mgr-a-797d9b578-6smnx                       1/1     Running     0          19h
+rook-ceph-mon-a-55f4754f4f-6tsrs                      1/1     Running     0          19h
+rook-ceph-operator-657fb97bf9-9lwdg                   1/1     Running     0          19h
+rook-ceph-osd-0-8dcfdbf5b-z5rw4                       1/1     Running     0          19h
+rook-ceph-osd-prepare-hyeongbin-sqkgq                 0/1     Completed   0          19h
+rook-discover-hjxzj                                   1/1     Running     0          19h
 
 # storage class is deployed
 $ kubectl get sc

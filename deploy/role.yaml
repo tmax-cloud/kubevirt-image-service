@@ -3,6 +3,7 @@ kind: Role
 metadata:
   creationTimestamp: null
   name: kubevirt-image-service
+  namespace: kis
 rules:
 - apiGroups:
   - ""
@@ -86,3 +87,4 @@ rules:
   - '*'
   verbs:
   - '*'
+

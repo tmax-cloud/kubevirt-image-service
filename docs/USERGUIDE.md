@@ -42,13 +42,11 @@ $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumes_crd.
 $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumeexports_crd.yaml
 
 # Deploy operator
-$ kubectl apply -f deploy/role.yaml
-$ kubectl apply -f deploy/role_binding.yaml
-$ kubectl apply -f deploy/service_account.yaml
+$ kubectl apply -f deploy/common.yaml
 $ kubectl apply -f deploy/operator.yaml
 
 # Check operator status
-$ kubectl get deployments.apps 
+$ kubectl get deploy -n kis 
 NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
 kubevirt-image-service   3/3     3            3           23s
 ```
@@ -131,4 +129,3 @@ disk-export-exporter-local        1/1     Running   6          67m
 # kubectl cp {vmve exporter pod name}:/export {local path to download}
 $ kubectl cp disk-export-exporter-local:/export export
 ```
-

@@ -121,4 +121,14 @@ $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevol
 $ kubectl get vmve
 NAME          STATE
 disk-export   Completed
+
+# Check exported pod
+$ kubectl get pod
+NAME                              READY   STATUS    RESTARTS   AGE
+disk-export-exporter-local        1/1     Running   6          67m
+
+# Copy exported volume to local path
+# kubectl cp {vmve exporter pod name}:/export {local path to download}
+$ kubectl cp disk-export-exporter-local:/export export
 ```
+

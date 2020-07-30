@@ -1,0 +1,6 @@
+# Namespace where the operator and other kubevirt-image-service resources are created
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kis
+

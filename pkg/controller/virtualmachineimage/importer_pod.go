@@ -6,20 +6,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	// DataVolName provides a const to use for creating volumes in pod specs
 	DataVolName = "data-vol"
-	// ScratchVolName provides a const to use for creating scratch pvc volumes in pod specs
-	ScratchVolName = "scratch-vol"
-	// ScratchDataDir provides a constant for the controller pkg to use as a hardcoded path to where scratch space is located.
-	ScratchDataDir = "/scratch"
 	// WriteBlockPath provides a constant for the path where the PV is mounted.
 	WriteBlockPath = "/dev/cdi-block-volume"
 	// ImporterSource provides a constant to capture our env variable "IMPORTER_SOURCE"
@@ -32,8 +26,10 @@ const (
 	ImporterImageSize = "IMPORTER_IMAGE_SIZE"
 	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
 	InsecureTLSVar = "INSECURE_TLS"
-	// SourceHTTP is the source type HTTP, if unspecified or invalid, it defaults to SourceHTTP
+	// SourceHTTP is the source type HTTP
 	SourceHTTP = "http"
+	// SourceHostPath is the source type host path
+	SourceHostPath = "hostPath"
 	// ImageContentType is the content-type of the imported file
 	ImageContentType = "kubevirt"
 	// ImportPodImage and ImportPodVerbose should be modified to get value from vmi env
@@ -41,6 +37,10 @@ const (
 	ImportPodImage = "kubevirt/cdi-importer:v1.13.0"
 	// ImportPodVerbose indicates log level of the import pod
 	ImportPodVerbose = "1"
+	// SourceVolumeName is used for creating source volume in pod specs
+	SourceVolumeName = "source-vol"
+	// SourceVolumeMountPath is a path where the source volume is mounted
+	SourceVolumeMountPath = "/data/source"
 )
 
 func (r *ReconcileVirtualMachineImage) syncImporterPod() error {
@@ -71,7 +71,7 @@ func (r *ReconcileVirtualMachineImage) syncImporterPod() error {
 	} else if !imported && !existsImporterPod {
 		// 임포팅을 해야 하므로 임포터파드를 만든다
 		klog.Infof("syncImporterPod create new importerPod for vmi %s", r.vmi.Name)
-		newPod, err := newImporterPod(r.vmi, r.scheme)
+		newPod, err := r.newImporterPod()
 		if err != nil {
 			return err
 		}
@@ -93,18 +93,11 @@ func GetImporterPodNameFromVmiName(vmiName string) string {
 	return vmiName + "-image-importer"
 }
 
-func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev1.Pod, error) {
-	source, endpoint, err := getSourceAndEndpoint(vmi)
-	if err != nil {
-		return nil, err
-	}
-
-	// virtual machine image spec의 pvc storage는 필수 값이다.
-	pvcSize := vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+func (r *ReconcileVirtualMachineImage) newImporterPod() (*corev1.Pod, error) {
 	ip := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      GetImporterPodNameFromVmiName(vmi.Name),
-			Namespace: vmi.Namespace,
+			Name:      GetImporterPodNameFromVmiName(r.vmi.Name),
+			Namespace: r.vmi.Namespace,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyOnFailure,
@@ -112,14 +105,6 @@ func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev
 				{
 					Name:  "importer",
 					Image: ImportPodImage,
-					Args:  []string{"-v=" + ImportPodVerbose},
-					Env: []corev1.EnvVar{
-						{Name: ImporterSource, Value: source},
-						{Name: ImporterEndpoint, Value: endpoint},
-						{Name: ImporterContentType, Value: ImageContentType},
-						{Name: ImporterImageSize, Value: pvcSize.String()},
-						{Name: InsecureTLSVar, Value: "true"},
-					},
 					Resources: corev1.ResourceRequirements{
 						Limits: map[corev1.ResourceName]resource.Quantity{
 							corev1.ResourceCPU:    resource.MustParse("0"),
@@ -127,12 +112,6 @@ func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev
 						Requests: map[corev1.ResourceName]resource.Quantity{
 							corev1.ResourceCPU:    resource.MustParse("0"),
 							corev1.ResourceMemory: resource.MustParse("0")},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      ScratchVolName,
-							MountPath: ScratchDataDir,
-						},
 					},
 					VolumeDevices: []corev1.VolumeDevice{
 						{Name: DataVolName, DevicePath: WriteBlockPath},
@@ -144,15 +123,7 @@ func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev
 					Name: DataVolName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: GetPvcNameFromVmiName(vmi.Name),
-						},
-					},
-				},
-				{
-					Name: ScratchVolName,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: getScratchPvcNameFromVmiName(vmi.Name),
+							ClaimName: GetPvcNameFromVmiName(r.vmi.Name),
 						},
 					},
 				},
@@ -162,15 +133,37 @@ func newImporterPod(vmi *hc.VirtualMachineImage, scheme *runtime.Scheme) (*corev
 			},
 		},
 	}
-	if err := controllerutil.SetControllerReference(vmi, ip, scheme); err != nil {
+
+	src, err := r.getSource()
+	if err != nil {
+		return nil, err
+	}
+	if src == SourceHTTP {
+		pvcSize := r.vmi.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+
+		ip.Spec.Containers[0].Args = []string{"-v=" + ImportPodVerbose}
+		ip.Spec.Containers[0].Env = []corev1.EnvVar{
+			{Name: ImporterSource, Value: SourceHTTP},
+			{Name: ImporterEndpoint, Value: r.vmi.Spec.Source.HTTP},
+			{Name: ImporterContentType, Value: ImageContentType},
+			{Name: ImporterImageSize, Value: pvcSize.String()},
+			{Name: InsecureTLSVar, Value: "true"},
+		}
+	} else if src == SourceHostPath {
+		ip.Spec.NodeName = r.vmi.Spec.Source.HostPath.NodeName
+		ip.Spec.Containers[0].Command = []string{"qemu-img", "convert", "-f", "qcow2", "-O", "raw", SourceVolumeMountPath + "/disk.img", WriteBlockPath}
+		ip.Spec.Volumes = append(ip.Spec.Volumes, corev1.Volume{
+			Name: SourceVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: r.vmi.Spec.Source.HostPath.Path,
+				}},
+		})
+		ip.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+			{Name: SourceVolumeName, MountPath: SourceVolumeMountPath}}
+	}
+	if err := controllerutil.SetControllerReference(r.vmi, ip, r.scheme); err != nil {
 		return nil, err
 	}
 	return ip, nil
-}
-
-func getSourceAndEndpoint(vmi *hc.VirtualMachineImage) (source, endpoint string, err error) {
-	if vmi.Spec.Source.HTTP == "" {
-		return "", "", errors.NewBadRequest("Invalid spec.source. Must provide http source.")
-	}
-	return SourceHTTP, vmi.Spec.Source.HTTP, nil
 }

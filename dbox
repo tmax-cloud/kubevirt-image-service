@@ -10,7 +10,8 @@ g)
   operator-sdk generate k8s
   ;;
 da)
-  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_cr.yaml --ignore-not-found=true
+  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_http_cr.yaml --ignore-not-found=true
+  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_hostpath_cr.yaml --ignore-not-found=true
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_virtualmachineimages_crd.yaml --ignore-not-found=true
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml --ignore-not-found=true
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumes_crd.yaml --ignore-not-found=true
@@ -18,7 +19,8 @@ da)
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumeexports_crd.yaml --ignore-not-found=true
   ;;
 dcr)
-  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_cr.yaml --ignore-not-found=true
+  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_http_cr.yaml --ignore-not-found=true
+  kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_hostpath_cr.yaml --ignore-not-found=true
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml --ignore-not-found=true
   kubectl delete -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolumeexport_cr.yaml --ignore-not-found=true
   ;;
@@ -31,14 +33,14 @@ do)
   ;;
 aa)
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachineimages_crd.yaml
-  kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_cr.yaml
+  kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_http_cr.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumes_crd.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumeexports_crd.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolumeexport_cr.yaml
   ;;
 acr)
-  kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_cr.yaml
+  kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_http_cr.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolume_cr.yaml
   kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolumeexport_cr.yaml
   ;;

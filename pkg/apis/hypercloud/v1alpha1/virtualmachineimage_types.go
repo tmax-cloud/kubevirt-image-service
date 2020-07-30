@@ -5,9 +5,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// VirtualMachineImageSource provides parameters to create a VirtualMachineImage from an HTTP source
+// VirtualMachineImageSource represents the source for our VirtualMachineImage, this can be HTTP or host path
 type VirtualMachineImageSource struct {
-	HTTP string `json:"http"`
+	HTTP     string                             `json:"http,omitempty"`
+	HostPath *VirtualMachineImageSourceHostPath `json:"hostPath,omitempty"`
+}
+
+// VirtualMachineImageSourceHostPath provides the parameters to create a virtual machine image from a host path
+type VirtualMachineImageSourceHostPath struct {
+	Path     string `json:"path"`
+	NodeName string `json:"nodeName"`
 }
 
 // VirtualMachineImageSpec defines the desired state of VirtualMachineImage

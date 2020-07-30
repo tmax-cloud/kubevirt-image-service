@@ -82,19 +82,16 @@ func (r *ReconcileVirtualMachineImage) Reconcile(request reconcile.Request) (rec
 		if err := r.validateVirtualMachineImageSpec(); err != nil {
 			return err
 		}
-		// pvc가 없으면 상태를 업데이트하고 pvc를 생성한다.
+		// If the pvc doesn't exist, create a pvc and update vmim's status to creating
 		if err := r.syncPvc(); err != nil {
 			return err
 		}
-		// imported=false인 경우 스크래치 pvc를 생성한다.
-		if err := r.syncScratchPvc(); err != nil {
-			return err
-		}
-		// imported=false인 경우 임포터파드가 없으면 만든다. 있으면 컴플리트인지 확인해서 imported=true로 변경한다.
+		// If the pvc import is not complete, create a importer pod
+		// If the pvc import is complete, delete the importer pod and update imported value to true
 		if err := r.syncImporterPod(); err != nil {
 			return err
 		}
-		// imported=true인 경우 스냅샷이 없으면 만들고, readyToUse를 true로 변경한다.
+		// If the pvc import is complete, create a snapshot and update vmim's status to available
 		if err := r.syncSnapshot(); err != nil {
 			return err
 		}
@@ -126,5 +123,20 @@ func (r *ReconcileVirtualMachineImage) validateVirtualMachineImageSpec() error {
 	if !found {
 		return goerrors.New("storage request in pvc is missing")
 	}
+	if _, err := r.getSource(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (r *ReconcileVirtualMachineImage) getSource() (string, error) {
+	if r.vmi.Spec.Source.HTTP != "" && r.vmi.Spec.Source.HostPath != nil {
+		return "", goerrors.New("only one source is possible")
+	} else if r.vmi.Spec.Source.HTTP != "" {
+		return SourceHTTP, nil
+	} else if r.vmi.Spec.Source.HostPath != nil {
+		return SourceHostPath, nil
+	} else {
+		return "", goerrors.New("vmim source is not set")
+	}
 }

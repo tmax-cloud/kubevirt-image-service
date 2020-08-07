@@ -65,6 +65,8 @@ function rook_install_command() {
   kubectl apply -f deploy/rook-ceph/snapshot-controller-rbac.yaml
   kubectl apply -f deploy/rook-ceph/snapshot-controller.yaml
   kubectl apply -f deploy/rook-ceph/snapshotclass.yaml
+  kubectl apply -f deploy/rook-ceph/object-test.yaml
+  kubectl apply -f deploy/rook-ceph/object-storageclass.yaml
 }
 
 function codegen() {

@@ -48,6 +48,20 @@ spec:
                   description: VirtualMachineVolumeExportDestinationLocal defines
                     the Local destination to export volume
                   type: object
+                s3:
+                  description: VirtualMachineVolumeExportDestinationS3 defines a s3
+                    destination to export a volume
+                  properties:
+                    secretRef:
+                      description: SecretRef is the secret reference which is needed
+                        to access the S3 endpoint
+                      type: string
+                    url:
+                      description: Url is the S3 endpoint
+                      type: string
+                  required:
+                  - url
+                  type: object
               type: object
             virtualMachineVolume:
               description: VirtualMachineVolumeSource indicates the VirtualMachineVolume

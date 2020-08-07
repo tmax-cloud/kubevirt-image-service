@@ -137,14 +137,6 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVirtualMachineVolumeExport) getDestination() string {
-	var destination string
-	if r.vmvExport.Spec.Destination.Local != nil {
-		destination = ExporterDestinationLocal
-	}
-	return destination
-}
-
 // updateStateWithReadyToUse updates conditions and state. Other Status fields are not affected. vmvExport must be DeepCopy to avoid polluting the cache.
 func (r *ReconcileVirtualMachineVolumeExport) updateStateWithReadyToUse(state hc.VirtualMachineVolumeExportState, readyToUseStatus corev1.ConditionStatus,
 	reason, message string) error {
@@ -161,6 +153,7 @@ func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() err
 	if err != nil {
 		return goerrors.New("fail to get virtual machine volume")
 	}
+
 	// check if vmv is available
 	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
 	if !found || cond.Status == corev1.ConditionUnknown {
@@ -168,5 +161,25 @@ func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() err
 	} else if cond.Status == corev1.ConditionFalse {
 		return goerrors.New("VirtualMachineVolume state is not in the condition")
 	}
+
+	// check if destination is set
+	if r.vmvExport.Spec.Destination.Local == nil && r.vmvExport.Spec.Destination.S3 == nil {
+		return goerrors.New("export destination is not provided")
+	}
+
+	// check if multiple destination is set
+	if r.vmvExport.Spec.Destination.Local != nil && r.vmvExport.Spec.Destination.S3 != nil {
+		return goerrors.New("can not export to multiple destination at a time")
+	}
+
 	return nil
+}
+
+func (r *ReconcileVirtualMachineVolumeExport) getDestination() string {
+	if r.vmvExport.Spec.Destination.Local != nil {
+		return ExporterDestinationLocal
+	} else if r.vmvExport.Spec.Destination.S3 != nil {
+		return ExporterDestinationS3
+	}
+	return ""
 }

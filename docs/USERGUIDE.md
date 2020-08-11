@@ -42,6 +42,7 @@ $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumes_crd.
 $ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_virtualmachinevolumeexports_crd.yaml
 
 # Deploy operator
+$ kubectl apply -f deploy/namespace.yaml
 $ kubectl apply -f deploy/role.yaml
 $ kubectl apply -f deploy/role_binding.yaml
 $ kubectl apply -f deploy/service_account.yaml

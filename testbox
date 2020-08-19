@@ -111,7 +111,7 @@ unit)
 codegen)
   codegen
 ;;
-e2e) operator-sdk test local ./e2e --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary;;
+e2e) operator-sdk test local ./e2e --operator-namespace kis --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary;;
 *)
   print_help
 ;;

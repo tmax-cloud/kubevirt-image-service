@@ -16,15 +16,14 @@ spec:
       serviceAccountName: kubevirt-image-service
       containers:
         - name: kubevirt-image-service
-          image: quay.io/tmaxanc/kubevirt-image-service:latest
+          #image: quay.io/tmaxanc/kubevirt-image-service:latest
+          image: quay.io/tmaxanc/kubevirt-image-service:canary
           command:
           - kubevirt-image-service
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: ""
             - name: POD_NAME
               valueFrom:
                 fieldRef:

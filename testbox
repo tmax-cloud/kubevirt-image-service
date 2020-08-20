@@ -113,8 +113,9 @@ codegen)
 ;;
 e2e) 
   kubectl create ns kis
-  operator-sdk test local ./e2e --operator-namespace kis --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary;;
+  operator-sdk test local ./e2e --operator-namespace kis --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary
   kubectl delete ns kis
+  ;;
 *)
   print_help
 ;;

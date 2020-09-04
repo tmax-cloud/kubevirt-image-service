@@ -151,8 +151,11 @@ func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() err
 		return goerrors.New("fail to get virtual machine volume")
 	}
 	// check if vmv is available
-	if vmVolume.Status.State != hc.VirtualMachineVolumeStateAvailable {
-		return goerrors.New("virtual machine volume is not available")
+	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.ConditionReadyToUse)
+	if !found || cond.Status == corev1.ConditionUnknown {
+		return goerrors.New("VirtualMachineVolume state is not determined yet")
+	} else if cond.Status == corev1.ConditionFalse {
+		return goerrors.New("VirtualMachineVolume state is not in the condition")
 	}
 	return nil
 }

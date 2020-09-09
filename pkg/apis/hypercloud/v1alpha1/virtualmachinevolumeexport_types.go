@@ -41,6 +41,8 @@ const (
 type VirtualMachineVolumeExportState string
 
 const (
+	// VirtualMachineVolumeExportStateCreating indicates VirtualMachineVolumeExport is pending
+	VirtualMachineVolumeExportStatePending VirtualMachineVolumeExportState = "Pending"
 	// VirtualMachineVolumeExportStateCreating indicates VirtualMachineVolumeExport is creating
 	VirtualMachineVolumeExportStateCreating VirtualMachineVolumeExportState = "Creating"
 	// VirtualMachineVolumeExportStateCompleted indicates the pvc export is completed

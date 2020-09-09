@@ -42,6 +42,70 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
+	// Watch for changes to primary resource VirtualMachineVolume
+
+
+	/*
+	err = c.Watch(&source.Kind{Type: &hc.VirtualMachineVolume{}}, &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: handler.ToRequestsFunc(func(VmveObject handler.MapObject) []reconcile.Request {
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name: hc.VirtualMachineVolume.Name,
+					Namespace: "",
+
+				}
+			}
+		}
+	}
+})
+if err != nil {
+	return err
+}
+*/
+err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{
+	ToRequests: handler.ToRequestsFunc(func(configMapObject handler.MapObject) []reconcile.Request {
+		// TODO: Get related ConfigSync CR for configMapObject
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name:      "ab",// Name of related ConfigSync,
+				Namespace: "cd",// Name of related ConfigSync,
+			}}
+		}
+	}),
+})
+
+err := c.Watch(
+	&source.Kind{Type: &appsv1.Deployment{}},
+	handler.EnqueueRequestsFromMapFunc(func(a handler.MapObject) []reconcile.Request {
+		return []reconcile.Request{
+			{NamespacedName: types.NamespacedName{
+				Name:      a.Object.GetName() + "-1",
+				Namespace: a.Object.GetNamespace(),
+			}},
+			{NamespacedName: types.NamespacedName{
+				Name:      a.Object.GetName() + "-2",
+				Namespace: a.Object.GetNamespace(),
+			}},
+		}
+	}),
+)
+
+/*
+		err = c.Watch(&source.Kind{Type: &hc.VirtualMachineVolume{}}, &handler.EnqueueRequestForObject{})
+		if err != nil {
+			return err
+		}
+	*/
+
+	/*
+		err = c.Watch(&source.Kind{Type: &hc.VirtualMachineVolume{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &hc.VirtualMachineVolumeExport{},
+		})
+		if err != nil {
+			return err
+		}
+	*/
 
 	// Watch for changes to secondary resource PVCs and requeue the owner VirtualMachineVolumeExport
 	err = c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, &handler.EnqueueRequestForOwner{
@@ -81,7 +145,7 @@ type ReconcileVirtualMachineVolumeExport struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Infof("Start sync VirtualMachineVolumeExport %s", request.NamespacedName)
+	klog.Infof("--------------------Start sync VirtualMachineVolumeExport %s", request.NamespacedName)
 	defer func() {
 		klog.Infof("End sync VirtualMachineVolumeExport %s", request.NamespacedName)
 	}()
@@ -98,7 +162,11 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 	syncAll := func() error {
 		// check if virtual machine volume to export is available
 		if err := r.validateVirtualMachineVolume(); err != nil {
-			return err
+			//make state pending
+			if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStatePending, corev1.ConditionFalse, "VmvExportIsPending", "VmvExport is in pending"); err2 != nil {
+				return err2
+			}
+			return nil
 		}
 		// if there is no pvc, update state to creating and create pvc
 		if err := r.syncExportPvc(); err != nil {

@@ -25,7 +25,11 @@ func (r *ReconcileVirtualMachineVolumeExport) syncExportPvc() error {
 	// get virtual machine volume pvc
 	sourcePvc, err := r.getPvc(vmv.GetVolumePvcName(r.vmvExport.Spec.VirtualMachineVolume.Name))
 	if err != nil {
-		return err
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStatePending, corev1.ConditionFalse, "VmvExportIsPending", "VmvExport is in pending"); err2 != nil {
+			return err2
+		}
+		//this is not exactly corret...
+		return nil
 	}
 
 	klog.Infof("Create a new pvc for vmvExport %s", r.vmvExport.Name)

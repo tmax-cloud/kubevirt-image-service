@@ -39,7 +39,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 	if err := c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
-	&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineVolume{}}); err != nil {
+		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineVolume{}}); err != nil {
 		return err
 	}
 	return nil
@@ -73,17 +73,24 @@ func (r *ReconcileVirtualMachineVolume) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 	r.volume = cachedVolume.DeepCopy()
+	klog.Infof("JJJ vmv state %s", r.volume.Status.State)
 
 	syncAll := func() error {
 		if err := r.validateVolumeSpec(); err != nil {
+			if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStatePending, corev1.ConditionFalse, "VmVolumeIsInPending", err.Error()); err2 != nil {
+				return err2
+			}
 			return err
 		}
-		if err := r.syncVolumePvc(); err!= nil {
+		if err := r.syncVolumePvc(); err != nil {
 			return err
 		}
 		return nil
 	}
 	if err := syncAll(); err != nil {
+		if r.volume.Status.State == hc.VirtualMachineVolumeStatePending {
+			return reconcile.Result{RequeueAfter: hc.VirtualMachineVolumeReconcileAgain}, nil
+		}
 		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "FailedCreate", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
@@ -96,7 +103,7 @@ func (r *ReconcileVirtualMachineVolume) validateVolumeSpec() error {
 	// Validate VirtualMachineImageName
 	image := &hc.VirtualMachineImage{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
-		if errors.IsNotFound(err){
+		if errors.IsNotFound(err) {
 			return goerrors.New("VirtualMachineImage is not exists")
 		}
 		return err
@@ -109,12 +116,6 @@ func (r *ReconcileVirtualMachineVolume) validateVolumeSpec() error {
 		return goerrors.New("VirtualMachineImage state is not available")
 	}
 
-	// Validate Capacity
-	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
-	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
-	if volumePvcSize.Value() < imagePvcSize.Value() {
-		return goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
-	}
 	return nil
 }
 

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // VirtualMachineVolumeExportSpec defines the desired state of VirtualMachineVolumeExport
@@ -41,12 +42,19 @@ const (
 type VirtualMachineVolumeExportState string
 
 const (
+	// VirtualMachineVolumeExportReconcileAgain is time to enter the reconcile loop again
+	VirtualMachineVolumeExportReconcileAgain = 1 * time.Second
+)
+
+const (
 	// VirtualMachineVolumeExportStateCreating indicates VirtualMachineVolumeExport is creating
 	VirtualMachineVolumeExportStateCreating VirtualMachineVolumeExportState = "Creating"
 	// VirtualMachineVolumeExportStateCompleted indicates the pvc export is completed
 	VirtualMachineVolumeExportStateCompleted VirtualMachineVolumeExportState = "Completed"
 	// VirtualMachineVolumeExportStateError indicates VirtualMachineVolumeExport is error
 	VirtualMachineVolumeExportStateError VirtualMachineVolumeExportState = "Error"
+	// VirtualMachineVolumeExportStatePending indicates VirtualMachineVolumeExport is pending
+	VirtualMachineVolumeExportStatePending VirtualMachineVolumeExportState = "Pending"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

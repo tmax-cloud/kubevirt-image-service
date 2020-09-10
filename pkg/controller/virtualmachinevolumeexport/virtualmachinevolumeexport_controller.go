@@ -94,10 +94,12 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	r.vmvExport = cachedVmvExport.DeepCopy()
-
 	syncAll := func() error {
 		// check if virtual machine volume to export is available
 		if err := r.validateVirtualMachineVolume(); err != nil {
+			if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStatePending, corev1.ConditionFalse, "VmvExportIsInPending", err.Error()); err2 != nil {
+				return err2
+			}
 			return err
 		}
 		// if there is no pvc, update state to creating and create pvc
@@ -118,6 +120,9 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 		return nil
 	}
 	if err := syncAll(); err != nil {
+		if r.vmvExport.Status.State == hc.VirtualMachineVolumeExportStatePending {
+			return reconcile.Result{RequeueAfter: hc.VirtualMachineVolumeExportReconcileAgain}, nil
+		}
 		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStateError, corev1.ConditionFalse, "VmvExportIsInError", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
@@ -151,7 +156,7 @@ func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() err
 		return goerrors.New("fail to get virtual machine volume")
 	}
 	// check if vmv is available
-	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.ConditionReadyToUse)
+	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
 	if !found || cond.Status == corev1.ConditionUnknown {
 		return goerrors.New("VirtualMachineVolume state is not determined yet")
 	} else if cond.Status == corev1.ConditionFalse {

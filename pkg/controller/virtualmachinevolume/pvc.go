@@ -31,11 +31,6 @@ func (r *ReconcileVirtualMachineVolume) syncVolumePvc() error {
 			return goerrors.New("PVC is lost")
 		}
 	} else {
-		klog.Infof("Create a new pvc for volume %s", r.volume.Name)
-		if err := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateCreating, corev1.ConditionFalse, "CreatingPVC", "VirtualMachineVolume is creating PVC"); err != nil {
-			return err
-		}
-
 		_, err := r.createVolumePvc()
 		if err != nil {
 			return err
@@ -48,6 +43,19 @@ func (r *ReconcileVirtualMachineVolume) syncVolumePvc() error {
 func (r *ReconcileVirtualMachineVolume) createVolumePvc() (*corev1.PersistentVolumeClaim, error) {
 	image := &hc.VirtualMachineImage{}
 	if err := r.client.Get(context.Background(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
+		return nil, err
+	}
+
+	// Validate Capacity
+	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
+	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
+	if volumePvcSize.Value() < imagePvcSize.Value() {
+		klog.Infof("VirtualMachineVolume size(%d) should be greater than or equal to VirtualMachineImage size(%d)", volumePvcSize.Value(), imagePvcSize.Value())
+		return nil, goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
+	}
+
+	klog.Infof("Create a new pvc for volume %s", r.volume.Name)
+	if err := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateCreating, corev1.ConditionFalse, "CreatingPVC", "VirtualMachineVolume is creating PVC"); err != nil {
 		return nil, err
 	}
 

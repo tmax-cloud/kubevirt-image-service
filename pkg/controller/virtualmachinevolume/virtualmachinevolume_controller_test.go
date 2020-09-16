@@ -19,8 +19,8 @@ var _ = Describe("Reconcile", func() {
 		r := createFakeReconcileVmv()
 		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
-		It("Should return error", func() {
-			Expect(err).ShouldNot(BeNil())
+		It("Should be nil", func() {
+			Expect(err).Should(BeNil())
 		})
 		It("Should not create pvc", func() {
 			pvc := &corev1.PersistentVolumeClaim{}
@@ -28,11 +28,11 @@ var _ = Describe("Reconcile", func() {
 				Namespace: r.volume.Namespace}, pvc)
 			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
-		It("Should update state to error", func() {
+		It("Should update state to pending", func() {
 			volume := &hc.VirtualMachineVolume{}
 			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
 			Expect(err).Should(BeNil())
-			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStatePending))
 		})
 		It("Should update condition readyToUse to false", func() {
 			volume := &hc.VirtualMachineVolume{}
@@ -50,12 +50,12 @@ var _ = Describe("Reconcile", func() {
 
 	Context("2. with false status image", func() {
 		image := newTestImage()
-		util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use")
 		r := createFakeReconcileVmv(image)
+		image.Status.Conditions = util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionFalse, "VmiIsReady", "Vmi is ready to use")
 		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
-		It("Should return error", func() {
-			Expect(err).ShouldNot(BeNil())
+		It("Should be nil", func() {
+			Expect(err).Should(BeNil())
 		})
 		It("Should not create pvc", func() {
 			pvc := &corev1.PersistentVolumeClaim{}
@@ -63,11 +63,11 @@ var _ = Describe("Reconcile", func() {
 				Namespace: r.volume.Namespace}, pvc)
 			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
-		It("Should update state to error", func() {
+		It("Should update state to pending", func() {
 			volume := &hc.VirtualMachineVolume{}
 			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
 			Expect(err).Should(BeNil())
-			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStatePending))
 		})
 		It("Should update condition readyToUse to false", func() {
 			volume := &hc.VirtualMachineVolume{}
@@ -88,8 +88,8 @@ var _ = Describe("Reconcile", func() {
 		r := createFakeReconcileVmv(image)
 		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
-		It("Should return error", func() {
-			Expect(err).ShouldNot(BeNil())
+		It("Should be nil", func() {
+			Expect(err).Should(BeNil())
 		})
 		It("Should not create pvc", func() {
 			pvc := &corev1.PersistentVolumeClaim{}
@@ -97,11 +97,11 @@ var _ = Describe("Reconcile", func() {
 				Namespace: r.volume.Namespace}, pvc)
 			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
-		It("Should update state to error", func() {
+		It("Should update state to pending", func() {
 			volume := &hc.VirtualMachineVolume{}
 			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
 			Expect(err).Should(BeNil())
-			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStateError))
+			Expect(volume.Status.State).Should(Equal(hc.VirtualMachineVolumeStatePending))
 		})
 		It("Should update condition readyToUse to false", func() {
 			volume := &hc.VirtualMachineVolume{}
@@ -120,7 +120,7 @@ var _ = Describe("Reconcile", func() {
 	Context("4. with true status, invalid size image", func() {
 		image := newTestImage()
 		image.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("7Gi")
-		util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use")
+		image.Status.Conditions = util.SetConditionByType(image.Status.Conditions, hc.ConditionReadyToUse, corev1.ConditionTrue, "VmiIsReady", "Vmi is ready to use")
 		r := createFakeReconcileVmv(image)
 		_, err := r.Reconcile(reconcile.Request{NamespacedName: testVolumeNamespacedName})
 
@@ -143,7 +143,6 @@ var _ = Describe("Reconcile", func() {
 			volume := &hc.VirtualMachineVolume{}
 			err = r.client.Get(context.TODO(), testVolumeNamespacedName, volume)
 			Expect(err).Should(BeNil())
-			// clear lastTransitionTime for easy comparison
 			for i := range volume.Status.Conditions {
 				volume.Status.Conditions[i].LastTransitionTime = v1.Time{}
 			}

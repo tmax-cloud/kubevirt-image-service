@@ -16,7 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
+
+// ReconcileInterval is an time to reconcile again when in Pending State
+const ReconcileInterval = 1 * time.Second
 
 // Add creates a new VirtualMachineVolume Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -73,25 +77,16 @@ func (r *ReconcileVirtualMachineVolume) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 	r.volume = cachedVolume.DeepCopy()
-	klog.Infof("JJJ vmv state %s", r.volume.Status.State)
 
-	syncAll := func() error {
-		if err := r.validateVolumeSpec(); err != nil {
-			if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStatePending, corev1.ConditionFalse, "VmVolumeIsInPending", err.Error()); err2 != nil {
-				return err2
-			}
-			return err
+	if err := r.validateVolumeSpec(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStatePending, corev1.ConditionFalse, "VmVolumeIsInPending", err.Error()); err2 != nil {
+			return reconcile.Result{}, err2
 		}
-		if err := r.syncVolumePvc(); err != nil {
-			return err
-		}
-		return nil
+		return reconcile.Result{RequeueAfter: ReconcileInterval}, nil
 	}
-	if err := syncAll(); err != nil {
-		if r.volume.Status.State == hc.VirtualMachineVolumeStatePending {
-			return reconcile.Result{RequeueAfter: hc.VirtualMachineVolumeReconcileAgain}, nil
-		}
-		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "FailedCreate", err.Error()); err2 != nil {
+
+	if err := r.syncVolumePvc(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "VmVolumeIsInError", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err

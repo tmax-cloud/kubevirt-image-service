@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // VirtualMachineImageName identifies which VirtualMachineImage source to create a VirtualMachineVolume from
@@ -24,11 +23,6 @@ type VirtualMachineVolumeSpec struct {
 
 // VirtualMachineVolumeState is a short string representation of the current VirtualMachineVolume state
 type VirtualMachineVolumeState string
-
-const (
-	// VirtualMachineVolumeReconcileAgain is time to enter the reconcile loop again
-	VirtualMachineVolumeReconcileAgain = 1 * time.Second
-)
 
 const (
 	// VirtualMachineVolumeStateCreating indicates VirtualMachineVolume is creating pvc

@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // VirtualMachineVolumeExportSpec defines the desired state of VirtualMachineVolumeExport
@@ -40,11 +39,6 @@ const (
 
 // VirtualMachineVolumeExportState is the current state of the VirtualMachineVolumeExport
 type VirtualMachineVolumeExportState string
-
-const (
-	// VirtualMachineVolumeExportReconcileAgain is time to enter the reconcile loop again
-	VirtualMachineVolumeExportReconcileAgain = 1 * time.Second
-)
 
 const (
 	// VirtualMachineVolumeExportStateCreating indicates VirtualMachineVolumeExport is creating

@@ -61,6 +61,9 @@ function rook_install_command() {
   kubectl apply -f deploy/rook-ceph/cluster-test.yaml
   wait_condition "kubectl get cephclusters.ceph.rook.io -n rook-ceph | grep Created" 300
   kubectl apply -f deploy/rook-ceph/storageclass-test.yaml
+  kubectl apply -f deploy/rook-ceph/snapshot_crds.yaml
+  kubectl apply -f deploy/rook-ceph/snapshot-controller-rbac.yaml
+  kubectl apply -f deploy/rook-ceph/snapshot-controller.yaml
   kubectl apply -f deploy/rook-ceph/snapshotclass.yaml
 }
 

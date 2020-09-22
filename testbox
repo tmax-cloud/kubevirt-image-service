@@ -41,7 +41,7 @@ function minikube_command() {
     sudo snap install kubectl --classic
   ;;
   start)
-    CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
+    CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.18.8
     sleep 3
   ;;
   clean)

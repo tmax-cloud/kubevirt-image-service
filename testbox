@@ -39,9 +39,10 @@ function minikube_command() {
     sudo mkdir -p /usr/local/bin/
     sudo install minikube /usr/local/bin/
     sudo snap install kubectl --classic
+    sudo apt-get install conntrack
   ;;
   start)
-    CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.17.3
+    CHANGE_MINIKUBE_NONE_USER=true sudo -E minikube start --driver=none --kubernetes-version=v1.18.8
     sleep 3
   ;;
   clean)

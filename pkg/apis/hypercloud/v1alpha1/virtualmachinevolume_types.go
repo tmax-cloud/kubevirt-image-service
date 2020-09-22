@@ -31,6 +31,8 @@ const (
 	VirtualMachineVolumeStateAvailable VirtualMachineVolumeState = "Available"
 	// VirtualMachineVolumeStateError indicates VirtualMachineVolume is not able to use
 	VirtualMachineVolumeStateError VirtualMachineVolumeState = "Error"
+	// VirtualMachineVolumeStatePending indicates VirtualMachineVolume is not able to use
+	VirtualMachineVolumeStatePending VirtualMachineVolumeState = "Pending"
 )
 
 const (

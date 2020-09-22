@@ -16,7 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
+
+// ReconcileInterval is an time to reconcile again when in Pending State
+const ReconcileInterval = 1 * time.Second
 
 // Add creates a new VirtualMachineVolume Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -39,7 +43,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 	if err := c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
-	&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineVolume{}}); err != nil {
+		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineVolume{}}); err != nil {
 		return err
 	}
 	return nil
@@ -74,17 +78,15 @@ func (r *ReconcileVirtualMachineVolume) Reconcile(request reconcile.Request) (re
 	}
 	r.volume = cachedVolume.DeepCopy()
 
-	syncAll := func() error {
-		if err := r.validateVolumeSpec(); err != nil {
-			return err
+	if err := r.validateVolumeSpec(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStatePending, corev1.ConditionFalse, "VmVolumeIsInPending", err.Error()); err2 != nil {
+			return reconcile.Result{}, err2
 		}
-		if err := r.syncVolumePvc(); err!= nil {
-			return err
-		}
-		return nil
+		return reconcile.Result{RequeueAfter: ReconcileInterval}, nil
 	}
-	if err := syncAll(); err != nil {
-		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "FailedCreate", err.Error()); err2 != nil {
+
+	if err := r.syncVolumePvc(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeStateError, corev1.ConditionFalse, "VmVolumeIsInError", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
@@ -96,7 +98,7 @@ func (r *ReconcileVirtualMachineVolume) validateVolumeSpec() error {
 	// Validate VirtualMachineImageName
 	image := &hc.VirtualMachineImage{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: r.volume.Spec.VirtualMachineImage.Name, Namespace: r.volume.Namespace}, image); err != nil {
-		if errors.IsNotFound(err){
+		if errors.IsNotFound(err) {
 			return goerrors.New("VirtualMachineImage is not exists")
 		}
 		return err
@@ -109,12 +111,6 @@ func (r *ReconcileVirtualMachineVolume) validateVolumeSpec() error {
 		return goerrors.New("VirtualMachineImage state is not available")
 	}
 
-	// Validate Capacity
-	imagePvcSize := image.Spec.PVC.Resources.Requests[corev1.ResourceStorage]
-	volumePvcSize := r.volume.Spec.Capacity[corev1.ResourceStorage]
-	if volumePvcSize.Value() < imagePvcSize.Value() {
-		return goerrors.New("VirtualMachineVolume size should be greater than or equal to VirtualMachineImage size")
-	}
 	return nil
 }
 

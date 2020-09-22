@@ -16,7 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
+
+// ReconcileInterval is an time to reconcile again when in Pending State
+const ReconcileInterval = 1 * time.Second
 
 // Add creates a new VirtualMachineVolumeExport Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -95,20 +99,26 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 	}
 	r.vmvExport = cachedVmvExport.DeepCopy()
 
-	syncAll := func() error {
-		// check if virtual machine volume to export is available
-		if err := r.validateVirtualMachineVolume(); err != nil {
-			return err
+	// check if virtual machine volume to export is available
+	if err := r.validateVirtualMachineVolume(); err != nil {
+		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStatePending, corev1.ConditionFalse, "VmvExportIsInPending", err.Error()); err2 != nil {
+			return reconcile.Result{}, err2
 		}
+		return reconcile.Result{RequeueAfter: ReconcileInterval}, nil
+	}
+
+	syncExport := func() error {
 		// if there is no pvc, update state to creating and create pvc
 		if err := r.syncExportPvc(); err != nil {
 			return err
 		}
+
 		// if pvc export is not completed, create exporter pod if it not exist
 		// if there is an exporter pod and state is complete, update completed to yes and delete it
 		if err := r.syncExporterPod(); err != nil {
 			return err
 		}
+
 		// if destination is local, create local pod and update readytouse to true if it not exist
 		if destination := r.getDestination(); destination == ExporterDestinationLocal {
 			if err := r.syncLocalPod(); err != nil {
@@ -117,7 +127,8 @@ func (r *ReconcileVirtualMachineVolumeExport) Reconcile(request reconcile.Reques
 		}
 		return nil
 	}
-	if err := syncAll(); err != nil {
+
+	if err := syncExport(); err != nil {
 		if err2 := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStateError, corev1.ConditionFalse, "VmvExportIsInError", err.Error()); err2 != nil {
 			return reconcile.Result{}, err2
 		}
@@ -151,7 +162,7 @@ func (r *ReconcileVirtualMachineVolumeExport) validateVirtualMachineVolume() err
 		return goerrors.New("fail to get virtual machine volume")
 	}
 	// check if vmv is available
-	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.ConditionReadyToUse)
+	found, cond := util.GetConditionByType(vmVolume.Status.Conditions, hc.VirtualMachineVolumeConditionReadyToUse)
 	if !found || cond.Status == corev1.ConditionUnknown {
 		return goerrors.New("VirtualMachineVolume state is not determined yet")
 	} else if cond.Status == corev1.ConditionFalse {

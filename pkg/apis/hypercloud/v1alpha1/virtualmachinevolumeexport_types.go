@@ -47,6 +47,8 @@ const (
 	VirtualMachineVolumeExportStateCompleted VirtualMachineVolumeExportState = "Completed"
 	// VirtualMachineVolumeExportStateError indicates VirtualMachineVolumeExport is error
 	VirtualMachineVolumeExportStateError VirtualMachineVolumeExportState = "Error"
+	// VirtualMachineVolumeExportStatePending indicates VirtualMachineVolumeExport is pending
+	VirtualMachineVolumeExportStatePending VirtualMachineVolumeExportState = "Pending"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

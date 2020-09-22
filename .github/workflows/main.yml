@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+      - uses: actions/checkout@v2
       - name: minikube start
         run: |
           ./testbox minikube download

@@ -57,18 +57,36 @@ kubevirt-image-service   3/3     3            3           23s
 
 # Use Kubevirt-Image-Service
 
-## Import image from HTTP source
+## Import image
+
+### 1. Import image from HTTP source
 
 vmim is the shortname for `VirtualMachineImage`.
 
 ``` shell
 # Deploy image CR. See the following yaml file for more information about each CR fields
-$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_cr.yaml
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_http_cr.yaml
 
 # Wait until image state is ready to use
 $ kubectl get vmim
 NAME       STATE
 myubuntu   Available
+```
+
+### 2. Import image from hostpath source
+
+```shell
+# Create a qcow2 image file with the name `disk.img` in the desired path (/mnt/data).
+
+# Deploy host path image CR using the path that created the qcow2 file.
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachineimage_hostpath_cr.yaml
+
+# Wait until image state is ready to use
+$ kubectl get vmim
+NAME       STATE
+localvmim  Available
+
+# When the status of vmim becomes Availalbe, user can delete the qcow2 file.
 ```
 
 ## Create volume from image

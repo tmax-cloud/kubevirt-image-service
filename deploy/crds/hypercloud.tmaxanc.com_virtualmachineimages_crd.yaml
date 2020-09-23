@@ -164,13 +164,23 @@ spec:
             snapshotClassName:
               type: string
             source:
-              description: VirtualMachineImageSource provides parameters to create
-                a VirtualMachineImage from an HTTP source
+              description: VirtualMachineImageSource represents the source for our
+                VirtualMachineImage, this can be HTTP or host path
               properties:
+                hostPath:
+                  description: VirtualMachineImageSourceHostPath provides the parameters
+                    to create a virtual machine image from a host path
+                  properties:
+                    nodeName:
+                      type: string
+                    path:
+                      type: string
+                  required:
+                  - nodeName
+                  - path
+                  type: object
                 http:
                   type: string
-              required:
-              - http
               type: object
           required:
           - pvc

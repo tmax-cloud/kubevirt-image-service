@@ -27,7 +27,7 @@ jobs:
       - name: codegen test
         run: ./testbox codgen
   e2e_test:
-    runs-on: ubuntu-18.04
+    runs-on: macos-10.15
     steps:
       - uses: actions/checkout@v2
       - name: Setup tmate session

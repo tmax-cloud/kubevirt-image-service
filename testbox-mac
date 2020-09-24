@@ -40,7 +40,7 @@ function minikube_command() {
     curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.18.8/bin/darwin/amd64/kubectl"
     chmod +x ./kubectl
     sudo mv ./kubectl /usr/local/bin/kubectl
-    curl -Lo https://download.virtualbox.org/virtualbox/6.1.14/VirtualBox-6.1.14-140239-OSX.dmg
+    curl -LO "https://download.virtualbox.org/virtualbox/6.1.14/VirtualBox-6.1.14-140239-OSX.dmg"
     hdiutil attach VirtualBox-6.1.14-140239-OSX.dmg
     sudo installer -pkg /Volumes/VirtualBox/VirtualBox.pkg -target /Volumes/Macintosh\ HD
     hdiutil unmount /Volumes/VirtualBox/

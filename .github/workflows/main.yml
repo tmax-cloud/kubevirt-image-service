@@ -35,9 +35,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: minikube start
         run: |
-          ./testbox minikube download
-          ./testbox minikube start
-          ./testbox rook_install
+          ./testbox_mac minikube download
+          ./testbox_mac minikube start
+          ./testbox_mac rook_install
       - name: build
         run: |
           ./testbox operator-sdk_install

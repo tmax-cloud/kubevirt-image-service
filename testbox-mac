@@ -45,7 +45,8 @@ function minikube_command() {
     sudo installer -pkg /Volumes/VirtualBox/VirtualBox.pkg -target /Volumes/Macintosh\ HD
     hdiutil unmount /Volumes/VirtualBox/
     rm VirtualBox-6.1.14-140239-OSX.dmg
-    mkfile -n /tmp/disk.img 11G
+    df -h
+    mkfile -n 15g /tmp/disk.img 
     ls -al /tmp
     VBoxManage convertfromraw /tmp/disk.img /tmp/disk.vdi
   ;;

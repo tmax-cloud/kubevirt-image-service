@@ -49,9 +49,15 @@ function minikube_command() {
     mkfile -n 15g /tmp/disk.img 
     ls -al /tmp
     VBoxManage convertfromraw /tmp/disk.img /tmp/disk.vdi
+
+    # download docker
+    brew install docker
+    
   ;;
   start)
-    minikube start --driver=virtualbox --kubernetes-version=v1.18.8
+    minikube config set memory 8192
+    minikube config set cpus 4
+    minikube start --driver=virtualbox --kubernetes-version=v1.18.8 
     VBoxManage storageattach minikube --storagectl "SATA" --port 2 --medium /tmp/disk.vdi  --type hdd
     sleep 3
   ;;

@@ -51,8 +51,9 @@ function minikube_command() {
     VBoxManage convertfromraw /tmp/disk.img /tmp/disk.vdi
 
     # download docker
-    brew install docker
-    
+    brew cask install docker
+    docker -v
+
   ;;
   start)
     minikube config set memory 8192

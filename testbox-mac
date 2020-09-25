@@ -52,12 +52,10 @@ function minikube_command() {
 
     # download docker
     brew cask install docker
-    echo "Sleep"
-    sleep 1000
     #ls -al /Applications/Docker.app/Contents/Resources/bin
-    #ln -s /Applications/Docker.app/Contents/Resources/bin/ /usr/local/bin/docker
+    ln -s /Applications/Docker.app/Contents/Resources/bin/* /usr/local/bin/
     #cp  /Applications/Docker.app/Contents/Resources/bin/* /usr/local/bin/
-    #docker -v
+    docker -v
 
   ;;
   start)

@@ -40,7 +40,7 @@ jobs:
           ./testbox-mac rook_install
       - name: build
         run: |
-          ./testbox operator-sdk_install
+          ./testbox-mac operator-sdk_install
           eval "$(docker-machine env default)" 
           docker login -u=tmaxanc+robot -p=${{ secrets.QUAY_PASSWORD }} quay.io
           ./testbox build

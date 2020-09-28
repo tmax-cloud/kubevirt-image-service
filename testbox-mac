@@ -116,7 +116,8 @@ rook_install)
   rook_install_command
   ;;
 operator-sdk_install)
-  brew install operator-sdk
+  curl -LO https://github.com/operator-framework/operator-sdk/releases/download/v0.17.1/operator-sdk-v0.17.1-x86_64-apple-darwin
+  chmod +x operator-sdk-v0.17.1-x86_64-apple-darwin && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-v0.17.1-x86_64-apple-darwin /usr/local/bin/operator-sdk && rm operator-sdk-v0.17.1-x86_64-apple-darwin
   ;;
 build)
   operator-sdk build quay.io/tmaxanc/kubevirt-image-service:canary

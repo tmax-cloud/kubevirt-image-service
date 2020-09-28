@@ -45,7 +45,7 @@ jobs:
           docker login -u=tmaxanc+robot -p=${{ secrets.QUAY_PASSWORD }} quay.io
           ./testbox build
       - name: e2e test
-        run: ./testbox e2e
+        run: ./testbox-mac e2e
   deploy-latest:
     if: github.ref == 'refs/heads/master'
     needs: [unit_test, lint, codegen_test, e2e_test]

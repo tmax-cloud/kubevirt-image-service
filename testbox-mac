@@ -134,7 +134,7 @@ codegen)
 ;;
 e2e) 
   kubectl create -f ./deploy/namespace.yaml
-  operator-sdk test local --operator-namespace kis ./e2e --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary
+  operator-sdk test local --operator-namespace kis ./e2e --debug --verbose --image quay.io/tmaxanc/kubevirt-image-service:canary --go-test-flags "-timeout=30m"
   kubectl delete -f ./deploy/namespace.yaml
   # Will not be necessary when sdk version goes up
   kubectl delete -f ./deploy/role.yaml

@@ -116,8 +116,7 @@ rook_install)
   rook_install_command
   ;;
 operator-sdk_install)
-  curl -Lo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v0.17.1/operator-sdk-v0.17.1-x86_64-linux-gnu
-  chmod +x operator-sdk && sudo mv operator-sdk /usr/local/bin
+  brew install operator-sdk
   ;;
 build)
   operator-sdk build quay.io/tmaxanc/kubevirt-image-service:canary

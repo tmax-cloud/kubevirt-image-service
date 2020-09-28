@@ -1,7 +1,7 @@
 package util
 
 import (
-	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
+	snapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
@@ -15,7 +15,7 @@ func CreateFakeClientAndScheme(objects ...runtime.Object) (client.Client, *runti
 	if err := hc.SchemeBuilder.AddToScheme(s); err != nil {
 		return nil, nil, err
 	}
-	if err := snapshotv1alpha1.AddToScheme(s); err != nil {
+	if err := snapshotv1beta1.AddToScheme(s); err != nil {
 		return nil, nil, err
 	}
 	var objs []runtime.Object

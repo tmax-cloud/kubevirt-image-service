@@ -50,13 +50,10 @@ function minikube_command() {
     ls -al /tmp
     VBoxManage convertfromraw /tmp/disk.img /tmp/disk.vdi
 
-    # download docker
-    brew cask install docker
-    #ls -al /Applications/Docker.app/Contents/Resources/bin
-    ln -s /Applications/Docker.app/Contents/Resources/bin/* /usr/local/bin/
-    #cp  /Applications/Docker.app/Contents/Resources/bin/* /usr/local/bin/
-    docker -v
-
+    brew install docker-machine docker
+    docker-machine create --driver virtualbox default
+    eval "$(docker-machine env default)"
+    docker ps
   ;;
   start)
     minikube config set memory 8192

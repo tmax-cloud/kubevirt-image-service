@@ -30,9 +30,6 @@ jobs:
     runs-on: macos-10.15
     steps:
       - uses: actions/checkout@v2
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-      - uses: actions/checkout@v2
       - name: minikube start
         run: |
           ./testbox-mac minikube download

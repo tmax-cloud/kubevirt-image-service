@@ -3,7 +3,7 @@ package virtualmachineimage
 import (
 	"context"
 	goerrors "errors"
-	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
+	snapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,7 +43,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineImage{}}); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &snapshotv1alpha1.VolumeSnapshot{}},
+	if err := c.Watch(&source.Kind{Type: &snapshotv1beta1.VolumeSnapshot{}},
 		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &hc.VirtualMachineImage{}}); err != nil {
 		return err
 	}

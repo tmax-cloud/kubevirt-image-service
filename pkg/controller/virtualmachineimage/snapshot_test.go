@@ -2,11 +2,10 @@ package virtualmachineimage
 
 import (
 	"context"
-	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
+	snapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	storage "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,7 +63,7 @@ var _ = Describe("syncSnapshot", func() {
 			Expect(err).Should(BeNil())
 		})
 		It("Should not create snapshot", func() {
-			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			snapshot := &snapshotv1beta1.VolumeSnapshot{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
 			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
@@ -80,7 +79,7 @@ var _ = Describe("syncSnapshot", func() {
 				},
 			},
 		}
-		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+		snapshot := &snapshotv1beta1.VolumeSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      GetSnapshotNameFromVmiName(testVmiName),
 				Namespace: testVmiNs,
@@ -93,7 +92,7 @@ var _ = Describe("syncSnapshot", func() {
 			Expect(err).Should(BeNil())
 		})
 		It("Should Delete snapshot", func() {
-			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			snapshot := &snapshotv1beta1.VolumeSnapshot{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
 			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
@@ -109,13 +108,14 @@ var _ = Describe("syncSnapshot", func() {
 				},
 			},
 		}
-		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+		readyToUseTrue := true
+		snapshot := &snapshotv1beta1.VolumeSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      GetSnapshotNameFromVmiName(testVmiName),
 				Namespace: testVmiNs,
 			},
-			Status: snapshotv1alpha1.VolumeSnapshotStatus{
-				ReadyToUse: true,
+			Status: &snapshotv1beta1.VolumeSnapshotStatus{
+				ReadyToUse: &readyToUseTrue,
 			},
 		}
 		r := createFakeReconcileVmi(importedPod, snapshot)
@@ -125,7 +125,7 @@ var _ = Describe("syncSnapshot", func() {
 			Expect(err).Should(BeNil())
 		})
 		It("Should not Delete snapshot", func() {
-			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			snapshot := &snapshotv1beta1.VolumeSnapshot{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
 			Expect(err).Should(BeNil())
 		})
@@ -155,13 +155,14 @@ var _ = Describe("syncSnapshot", func() {
 				},
 			},
 		}
-		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+		readyToUserFalse := false
+		snapshot := &snapshotv1beta1.VolumeSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      GetSnapshotNameFromVmiName(testVmiName),
 				Namespace: testVmiNs,
 			},
-			Status: snapshotv1alpha1.VolumeSnapshotStatus{
-				ReadyToUse: false,
+			Status: &snapshotv1beta1.VolumeSnapshotStatus{
+				ReadyToUse: &readyToUserFalse,
 			},
 		}
 		r := createFakeReconcileVmi(importedPod, snapshot)
@@ -171,7 +172,7 @@ var _ = Describe("syncSnapshot", func() {
 			Expect(err).Should(BeNil())
 		})
 		It("Should not Delete snapshot", func() {
-			snapshot := &snapshotv1alpha1.VolumeSnapshot{}
+			snapshot := &snapshotv1beta1.VolumeSnapshot{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.vmi.Namespace, Name: GetSnapshotNameFromVmiName(r.vmi.Name)}, snapshot)
 			Expect(err).Should(BeNil())
 		})
@@ -187,14 +188,15 @@ var _ = Describe("syncSnapshot", func() {
 				},
 			},
 		}
-		snapshot := &snapshotv1alpha1.VolumeSnapshot{
+		errorMessage := "errors"
+		snapshot := &snapshotv1beta1.VolumeSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      GetSnapshotNameFromVmiName(testVmiName),
 				Namespace: testVmiNs,
 			},
-			Status: snapshotv1alpha1.VolumeSnapshotStatus{
-				Error: &storage.VolumeError{
-					Message: "errors",
+			Status: &snapshotv1beta1.VolumeSnapshotStatus{
+				Error: &snapshotv1beta1.VolumeSnapshotError{
+					Message: &errorMessage,
 				},
 			},
 		}

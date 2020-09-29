@@ -34,11 +34,17 @@ const (
 	// ExporterName indicates container name in exporter pod
 	ExporterName = "kubevirt-image-service-exporter"
 	// ExporterImage indicates exporter container image
-	ExporterImage = "quay.io/tmaxanc/kubevirt-image-service-exporter:latest"
-	// ExporterDestinationLocal indicates Destaination to export is local
+	ExporterImage = "quay.io/tmaxanc/kubevirt-image-service-exporter:v1.2.0"
+	// ExporterDestinationLocal indicates Destination to export is local
 	ExporterDestinationLocal = "local"
-	// ExporterDestinationS3 indicates Destaination to export is s3
+	// ExporterDestinationS3 indicates Destination to export is s3
 	ExporterDestinationS3 = "s3"
+	// Endpoint is an endpoint of the external object storage where to export volume
+	Endpoint = "ENDPOINT"
+	// AccessKeyID is one of AWS-style credential which is needed when export volume to external object storage
+	AccessKeyID = "AWS_ACCESS_KEY_ID"
+	// SecretAccessKey is one of AWS-style credential which is needed when export volume to external object storage
+	SecretAccessKey = "AWS_SECRET_ACCESS_KEY"
 )
 
 func (r *ReconcileVirtualMachineVolumeExport) syncExporterPod() error {
@@ -66,6 +72,11 @@ func (r *ReconcileVirtualMachineVolumeExport) syncExporterPod() error {
 		}
 		if err := r.client.Delete(context.TODO(), exporterPod); err != nil && !errors.IsNotFound(err) {
 			return err
+		}
+		if destination := r.getDestination(); destination != ExporterDestinationLocal {
+			if err := r.updateStateWithReadyToUse(hc.VirtualMachineVolumeExportStateCompleted, corev1.ConditionTrue, "vmvExportIsCompleted", "vmvExport is completed"); err != nil {
+				return err
+			}
 		}
 	} else if !completed && !existsExporterPod {
 		// pvc export is not completed, should create exporter pod
@@ -147,6 +158,34 @@ func (r *ReconcileVirtualMachineVolumeExport) newExporterPod(vmvExport *hc.Virtu
 			RestartPolicy: corev1.RestartPolicyOnFailure,
 		},
 	}
+
+	if r.getDestination() == ExporterDestinationS3 {
+		ep.Spec.Containers[0].Env = append(ep.Spec.Containers[0].Env, corev1.EnvVar{
+			Name: AccessKeyID,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.vmvExport.Spec.Destination.S3.SecretRef,
+					},
+					Key: AccessKeyID,
+				},
+			},
+		}, corev1.EnvVar{
+			Name: SecretAccessKey,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.vmvExport.Spec.Destination.S3.SecretRef,
+					},
+					Key: SecretAccessKey,
+				},
+			},
+		}, corev1.EnvVar{
+			Name: Endpoint,
+			Value: r.vmvExport.Spec.Destination.S3.URL,
+		})
+	}
+
 	if err := controllerutil.SetControllerReference(vmvExport, ep, scheme); err != nil {
 		return nil, err
 	}

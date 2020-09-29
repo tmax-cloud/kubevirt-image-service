@@ -6,6 +6,7 @@ require (
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/kube-object-storage/lib-bucket-provisioner v0.0.0-20200610144127-e2eec875d6d1
 	github.com/kubernetes-csi/external-snapshotter v1.2.2
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

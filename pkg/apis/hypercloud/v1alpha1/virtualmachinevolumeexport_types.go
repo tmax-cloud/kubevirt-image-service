@@ -13,6 +13,7 @@ type VirtualMachineVolumeExportSpec struct {
 // VirtualMachineVolumeExportDestination defines the destination to export volume
 type VirtualMachineVolumeExportDestination struct {
 	Local *VirtualMachineVolumeExportDestinationLocal `json:"local,omitempty"`
+	S3 *VirtualMachineVolumeExportDestinationS3 `json:"s3,omitempty"`
 }
 
 // VirtualMachineVolumeSource indicates the VirtualMachineVolume to be exported
@@ -22,6 +23,14 @@ type VirtualMachineVolumeSource struct {
 
 // VirtualMachineVolumeExportDestinationLocal defines the Local destination to export volume
 type VirtualMachineVolumeExportDestinationLocal struct{}
+
+// VirtualMachineVolumeExportDestinationS3 defines a s3 destination to export a volume
+type VirtualMachineVolumeExportDestinationS3 struct{
+	// Url is the S3 endpoint
+	URL string `json:"url"`
+	// SecretRef is the secret reference which is needed to access the S3 endpoint
+	SecretRef string `json:"secretRef,omitempty"`
+}
 
 // VirtualMachineVolumeExportStatus defines the observed state of VirtualMachineVolumeExport
 type VirtualMachineVolumeExportStatus struct {

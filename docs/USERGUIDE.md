@@ -151,3 +151,20 @@ disk-export-exporter-local        1/1     Running   6          67m
 # kubectl cp {vmve exporter pod name}:export/disk.img {local path to download}
 $ kubectl cp disk-export-exporter-local:export/disk.img localpath.img
 ```
+
+## Export volume to external object storage
+
+``` shell
+# Create k8s secret with your accessKeyId and secretAccessKey of the external endpoint
+$ kubectl apply -f deploy/example/endpoint-secret.yaml
+
+# Deploy export CR
+# Your s3 endpoint must be written in virtual hosted style, https://bucket-name.endpoint/object-key-name
+# You need to specify secretRef as well with the secret you created in the previous step
+$ kubectl apply -f deploy/crds/hypercloud.tmaxanc.com_v1alpha1_virtualmachinevolumeexport_s3_cr.yaml
+
+# Wait until export is completed
+$ kubectl get vmve
+NAME          STATE
+s3-export   Completed
+```

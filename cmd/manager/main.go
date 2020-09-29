@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	snapshotv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
+	snapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"os"
 	"runtime"
 
@@ -110,7 +110,7 @@ func main() {
 	}
 
 	// Add snapshot scheme
-	if err := snapshotv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := snapshotv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

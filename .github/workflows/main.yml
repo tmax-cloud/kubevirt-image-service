@@ -27,17 +27,11 @@ jobs:
       - name: codegen test
         run: ./testbox codgen
   e2e_test:
-    runs-on: ubuntu-18.04
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
-      - name: minikube start
-        run: |
-          ./testbox minikube download
-          ./testbox minikube start
-          ./testbox rook_install
       - name: build
         run: |
-          ./testbox operator-sdk_install
           docker login -u=tmaxanc+robot -p=${{ secrets.QUAY_PASSWORD }} quay.io
           ./testbox build
       - name: e2e test

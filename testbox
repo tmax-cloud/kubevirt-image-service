@@ -101,7 +101,7 @@ rook_install)
   rook_install_command
   ;;
 operator-sdk_install)
-  curl -Lo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v0.17.1/operator-sdk-v0.17.1-x86_64-linux-gnu
+  curl -Lo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v0.18.2/operator-sdk-v0.18.2-x86_64-linux-gnu
   chmod +x operator-sdk && sudo mv operator-sdk /usr/local/bin
   ;;
 build)

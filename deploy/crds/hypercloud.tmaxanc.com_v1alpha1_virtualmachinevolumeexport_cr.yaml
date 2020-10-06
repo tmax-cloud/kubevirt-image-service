@@ -1,9 +1,0 @@
-apiVersion: hypercloud.tmaxanc.com/v1alpha1
-kind: VirtualMachineVolumeExport
-metadata:
-  name: disk-export
-spec:
-  virtualMachineVolume:
-    name: myrootdisk
-  destination:
-    local: {}

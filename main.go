@@ -28,9 +28,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	hypercloudv1alpha1 "github.com/tmax-cloud/kubevirt-image-service/api/v1alpha1"
+	hc "github.com/tmax-cloud/kubevirt-image-service/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
+
+const managerPort = 9443
 
 var (
 	scheme   = runtime.NewScheme()
@@ -40,7 +42,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(hypercloudv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(hc.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -58,7 +60,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
-		Port:               9443,
+		Port:               managerPort,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "c79543b1.tmaxanc.com",
 	})
@@ -67,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&virtualmachineimage.VirtualMachineImageReconciler{
+	if err = (&virtualmachineimage.ReconcileVirtualMachineImage{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("VirtualMachineImage"),
 		Scheme: mgr.GetScheme(),

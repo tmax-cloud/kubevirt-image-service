@@ -19,20 +19,20 @@ package virtualmachineimage
 import (
 	"context"
 	goerrors "errors"
+	"github.com/go-logr/logr"
 	snapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"github.com/tmax-cloud/kubevirt-image-service/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/go-logr/logr"
 	hc "github.com/tmax-cloud/kubevirt-image-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// VirtualMachineImageReconciler reconciles a VirtualMachineImage object
+// ReconcileVirtualMachineImage reconciles a VirtualMachineImage object
 type ReconcileVirtualMachineImage struct {
 	client.Client
 	Log    logr.Logger
@@ -43,9 +43,10 @@ type ReconcileVirtualMachineImage struct {
 // +kubebuilder:rbac:groups=hypercloud.tmaxanc.com,resources=virtualmachineimages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hypercloud.tmaxanc.com,resources=virtualmachineimages/status,verbs=get;update;patch
 
+// Reconcile reads that state of the cluster for a VirtualMachineImage object and makes changes based on the state read
 func (r *ReconcileVirtualMachineImage) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
-	_ = r.Log.WithValues("virtualmachineimage", req.NamespacedName)
+	_ = r.Log.WithValues("VirtualMachineImage", req.NamespacedName)
 
 	cachedVmi := &hc.VirtualMachineImage{}
 	if err := r.Client.Get(context.TODO(), req.NamespacedName, cachedVmi); err != nil {
@@ -86,6 +87,7 @@ func (r *ReconcileVirtualMachineImage) Reconcile(req ctrl.Request) (ctrl.Result,
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager creates new controller for VirtualMachineImage
 func (r *ReconcileVirtualMachineImage) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hc.VirtualMachineImage{}).

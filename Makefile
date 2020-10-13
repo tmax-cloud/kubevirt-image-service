@@ -1,120 +1,295 @@
-# Current Operator version
-VERSION ?= 0.0.1
-# Default bundle image tag
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
-# Options for 'bundle-build'
-ifneq ($(origin CHANNELS), undefined)
-BUNDLE_CHANNELS := --channels=$(CHANNELS)
+# kernel-style V=1 build verbosity
+ifeq ("$(origin V)", "command line")
+  BUILD_VERBOSE = $(V)
 endif
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
-BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
-BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
-
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
+ifeq ($(BUILD_VERBOSE),1)
+  Q =
 else
-GOBIN=$(shell go env GOBIN)
+  Q = @
 endif
 
-all: manager
+VERSION = $(shell git describe --dirty --tags --always)
+GIT_COMMIT = $(shell git rev-parse HEAD)
+K8S_VERSION = v1.18.2
+REPO = github.com/operator-framework/operator-sdk
+PKGS = $(shell go list ./... | grep -v /vendor/)
+TEST_PKGS = $(shell go list ./... | grep -v -E 'github.com/operator-framework/operator-sdk/test/')
+SOURCES = $(shell find . -name '*.go' -not -path "*/vendor/*")
+# GO_BUILD_ARGS should be set when running 'go build' or 'go install'.
+GO_BUILD_ARGS = \
+  -gcflags "all=-trimpath=$(shell go env GOPATH)" \
+  -asmflags "all=-trimpath=$(shell go env GOPATH)" \
+  -ldflags " \
+    -X '$(REPO)/internal/version.GitVersion=$(VERSION)' \
+    -X '$(REPO)/internal/version.GitCommit=$(GIT_COMMIT)' \
+    -X '$(REPO)/internal/version.KubernetesVersion=$(K8S_VERSION)' \
+  " \
 
-# Run tests
-test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
 
-# Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager main.go
+ANSIBLE_BASE_IMAGE = quay.io/operator-framework/ansible-operator
+HELM_BASE_IMAGE = quay.io/operator-framework/helm-operator
+SCORECARD_TEST_BASE_IMAGE = quay.io/operator-framework/scorecard-test
+SCORECARD_TEST_KUTTL_BASE_IMAGE = quay.io/operator-framework/scorecard-test-kuttl
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
-	go run ./main.go
+ANSIBLE_IMAGE ?= $(ANSIBLE_BASE_IMAGE)
+HELM_IMAGE ?= $(HELM_BASE_IMAGE)
+SCORECARD_TEST_IMAGE ?= $(SCORECARD_TEST_BASE_IMAGE)
+SCORECARD_TEST_KUTTL_IMAGE ?= $(SCORECARD_TEST_KUTTL_BASE_IMAGE)
 
-# Install CRDs into a cluster
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+ANSIBLE_ARCHES:="amd64" "ppc64le" "arm64"
+HELM_ARCHES:="amd64" "ppc64le" "arm64"
+SCORECARD_TEST_ARCHES:="amd64" "ppc64le" "arm64"
+SCORECARD_TEST_KUTTL_ARCHES:="amd64" "ppc64le" "arm64"
 
-# Uninstall CRDs from a cluster
-uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+export CGO_ENABLED:=0
+.DEFAULT_GOAL:=help
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+.PHONY: help
+help: ## Show this help screen
+	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
+	@echo ''
+	@echo 'Available targets are:'
+	@echo ''
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+##############################
+# Development                #
+##############################
 
-# Run go fmt against code
-fmt:
-	go fmt ./...
+##@ Development
 
-# Run go vet against code
-vet:
-	go vet ./...
+.PHONY: all install
 
-# Generate code
-generate: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+all: format test build/operator-sdk ## Test and Build the Operator SDK
 
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+install: ## Install the binaries
+	$(Q)$(GOARGS) go install $(GO_BUILD_ARGS) ./cmd/operator-sdk ./cmd/ansible-operator ./cmd/helm-operator
 
-# Push the docker image
-docker-push:
-	docker push ${IMG}
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+# Code management.
+.PHONY: format tidy clean cli-doc lint
+
+format: ## Format the source code
+	$(Q)go fmt $(PKGS)
+
+tidy: ## Update dependencies
+	$(Q)go mod tidy -v
+
+clean: ## Clean up the build artifacts
+	$(Q)rm -rf build
+
+lint-dev:  ## Run golangci-lint with all checks enabled (development purpose only)
+	./hack/tests/check-lint.sh dev
+
+lint-fix: ## Run golangci-lint automatically fix (development purpose only)
+	./hack/tests/check-lint.sh fix
+
+lint: ## Run golangci-lint with all checks enabled in the ci
+	./hack/tests/check-lint.sh ci
+
+setup-k8s:
+	hack/ci/setup-k8s.sh ${K8S_VERSION}
+
+##############################
+# Generate Artifacts         #
+##############################
+
+##@ Generate
+
+.PHONY: generate gen-cli-doc gen-changelog
+
+generate: gen-cli-doc  ## Run all non-release generate targets
+
+gen-cli-doc: ## Generate CLI documentation
+	./hack/generate/cli-doc/gen-cli-doc.sh
+
+gen-changelog: ## Generate CHANGELOG.md and migration guide updates
+	./hack/generate/changelog/gen-changelog.sh
+
+##############################
+# Release                    #
+##############################
+
+##@ Release
+
+# Build/install/release the SDK.
+.PHONY: release_builds release
+
+release_builds := \
+	build/operator-sdk-$(VERSION)-aarch64-linux-gnu \
+	build/operator-sdk-$(VERSION)-x86_64-linux-gnu \
+	build/operator-sdk-$(VERSION)-x86_64-apple-darwin \
+	build/operator-sdk-$(VERSION)-ppc64le-linux-gnu \
+	build/operator-sdk-$(VERSION)-s390x-linux-gnu \
+	build/ansible-operator-$(VERSION)-aarch64-linux-gnu \
+	build/ansible-operator-$(VERSION)-x86_64-linux-gnu \
+	build/ansible-operator-$(VERSION)-x86_64-apple-darwin \
+	build/ansible-operator-$(VERSION)-ppc64le-linux-gnu \
+	build/ansible-operator-$(VERSION)-s390x-linux-gnu \
+	build/helm-operator-$(VERSION)-aarch64-linux-gnu \
+	build/helm-operator-$(VERSION)-x86_64-linux-gnu \
+	build/helm-operator-$(VERSION)-x86_64-apple-darwin \
+	build/helm-operator-$(VERSION)-ppc64le-linux-gnu \
+	build/helm-operator-$(VERSION)-s390x-linux-gnu
+
+release: clean $(release_builds) $(release_builds:=.asc) ## Release the Operator SDK
+
+build/operator-sdk-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
+build/operator-sdk-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+build/operator-sdk-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
+build/operator-sdk-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
+build/operator-sdk-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
+build/operator-sdk-%-linux-gnu: GOARGS = GOOS=linux
+
+build/ansible-operator-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
+build/ansible-operator-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+build/ansible-operator-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
+build/ansible-operator-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
+build/ansible-operator-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
+build/ansible-operator-%-linux-gnu: GOARGS = GOOS=linux
+
+build/helm-operator-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
+build/helm-operator-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+build/helm-operator-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
+build/helm-operator-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
+build/helm-operator-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
+build/helm-operator-%-linux-gnu: GOARGS = GOOS=linux
+
+build/%: $(SOURCES) ## Build the operator-sdk binary
+	$(Q){ \
+	cmdpkg=$$(echo $* | sed -E "s/(operator-sdk|ansible-operator|helm-operator).*/\1/"); \
+	$(GOARGS) go build $(GO_BUILD_ARGS) -o $@ ./cmd/$$cmdpkg; \
 	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
 
-kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
+build/%.asc: ## Create release signatures for operator-sdk release binaries
+	$(Q){ \
+	default_key=$$(gpgconf --list-options gpg | awk -F: '$$1 == "default-key" { gsub(/"/,""); print toupper($$10)}'); \
+	git_key=$$(git config --get user.signingkey | awk '{ print toupper($$0) }'); \
+	if [ "$${default_key}" = "$${git_key}" ]; then \
+		gpg --output $@ --detach-sig build/$*; \
+		gpg --verify $@ build/$*; \
+	else \
+		echo "git and/or gpg are not configured to have default signing key $${default_key}"; \
+		exit 1; \
+	fi; \
 	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
 
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+# Image scaffold/build/push.
+.PHONY: image image-build image-push
 
-# Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+image: image-build image-push ## Build and push all images
+
+image-build: image-build-ansible image-build-helm image-build-scorecard-test image-build-scorecard-test-kuttl## Build all images
+
+image-push: image-push-ansible image-push-helm image-push-scorecard-test ## Push all images
+
+# Ansible operator image scaffold/build/push.
+.PHONY: image-scaffold-ansible image-build-ansible image-push-ansible image-push-ansible-multiarch
+
+image-scaffold-ansible:
+	go run ./hack/image/ansible/scaffold-ansible-image.go
+
+image-build-ansible: build/ansible-operator-dev-linux-gnu
+	./hack/image/build-ansible-image.sh $(ANSIBLE_BASE_IMAGE):dev
+
+image-push-ansible:
+	./hack/image/push-image-tags.sh $(ANSIBLE_BASE_IMAGE):dev $(ANSIBLE_IMAGE)-$(shell go env GOARCH)
+
+image-push-ansible-multiarch:
+	./hack/image/push-manifest-list.sh $(ANSIBLE_IMAGE) ${ANSIBLE_ARCHES}
+
+# Helm operator image scaffold/build/push.
+.PHONY: image-scaffold-helm image-build-helm image-push-helm image-push-helm-multiarch
+
+image-scaffold-helm:
+	go run ./hack/image/helm/scaffold-helm-image.go
+
+image-build-helm: build/helm-operator-dev-linux-gnu
+	./hack/image/build-helm-image.sh $(HELM_BASE_IMAGE):dev
+
+image-push-helm:
+	./hack/image/push-image-tags.sh $(HELM_BASE_IMAGE):dev $(HELM_IMAGE)-$(shell go env GOARCH)
+
+image-push-helm-multiarch:
+	./hack/image/push-manifest-list.sh $(HELM_IMAGE) ${HELM_ARCHES}
+
+# Scorecard test image scaffold/build/push.
+.PHONY: image-build-scorecard-test image-push-scorecard-test image-push-scorecard-test-multiarch
+
+# Scorecard test kuttl image scaffold/build/push.
+.PHONY: image-build-scorecard-test-kuttl image-push-scorecard-test-kuttl image-push-scorecard-test-kuttl-multiarch
+
+image-build-scorecard-test:
+	./hack/image/build-scorecard-test-image.sh $(SCORECARD_TEST_BASE_IMAGE):dev
+
+image-push-scorecard-test:
+	./hack/image/push-image-tags.sh $(SCORECARD_TEST_BASE_IMAGE):dev $(SCORECARD_TEST_IMAGE)-$(shell go env GOARCH)
+
+image-push-scorecard-test-multiarch:
+	./hack/image/push-manifest-list.sh $(SCORECARD_TEST_IMAGE) ${SCORECARD_TEST_ARCHES}
+
+image-build-scorecard-test-kuttl:
+	./hack/image/build-scorecard-test-kuttl-image.sh $(SCORECARD_TEST_KUTTL_BASE_IMAGE):dev
+
+image-push-scorecard-test-kuttl:
+	./hack/image/push-image-tags.sh $(SCORECARD_TEST_KUTTL_BASE_IMAGE):dev $(SCORECARD_TEST_KUTTL_IMAGE)-$(shell go env GOARCH)
+
+image-push-scorecard-test-kuttl-multiarch:
+	./hack/image/push-manifest-list.sh $(SCORECARD_TEST_KUTTL_IMAGE) ${SCORECARD_TEST_KUTTL_ARCHES}
+
+##############################
+# Tests                      #
+##############################
+
+##@ Tests
+
+# Static tests.
+.PHONY: test test-sanity test-unit
+
+test: test-unit ## Run the tests
+
+test-sanity: tidy build/operator-sdk lint
+	./hack/tests/sanity-check.sh
+
+test-unit: ## Run the unit tests
+	$(Q)go test -coverprofile=coverage.out -covermode=count -count=1 -short $(TEST_PKGS)
+
+test-links:
+	./hack/check-links.sh
+
+# CI tests.
+.PHONY: test-ci
+
+test-ci: test-sanity test-unit install test-subcommand test-e2e ## Run the CI test suite
+
+# Subcommand tests.
+.PHONY: test-subcommand test-subcommand-olm-install
+
+test-subcommand: test-subcommand-olm-install
+
+test-subcommand-olm-install:
+	./hack/tests/subcommand-olm-install.sh
+
+# E2E tests.
+.PHONY: test-e2e test-e2e-go test-e2e-ansible test-e2e-ansible-molecule test-e2e-helm
+
+test-e2e: test-e2e-go test-e2e-ansible test-e2e-ansible-molecule test-e2e-helm ## Run the e2e tests
+
+test-e2e-go: image-build-scorecard-test
+	./hack/tests/e2e-go.sh
+
+test-e2e-ansible: image-build-ansible image-build-scorecard-test
+	./hack/tests/e2e-ansible.sh
+
+test-e2e-ansible-molecule: image-build-ansible
+	./hack/tests/e2e-ansible-molecule.sh
+
+test-e2e-helm: image-build-helm image-build-scorecard-test
+	./hack/tests/e2e-helm.sh
+
+# Integration tests.
+.PHONY: test-integration
+
+test-integration: ## Run integration tests
+	./hack/tests/integration.sh

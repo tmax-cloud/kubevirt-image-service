@@ -1,0 +1,24 @@
+# permissions for end users to edit virtualmachineimages.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: virtualmachineimage-editor-role
+rules:
+- apiGroups:
+  - hypercloud.tmaxanc.com
+  resources:
+  - virtualmachineimages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hypercloud.tmaxanc.com
+  resources:
+  - virtualmachineimages/status
+  verbs:
+  - get

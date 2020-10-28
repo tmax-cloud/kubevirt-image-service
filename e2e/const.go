@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"time"
 )
 
@@ -12,8 +11,3 @@ const (
 	cleanupTimeout       = time.Second * 60
 	operatorName         = "kubevirt-image-service"
 )
-
-var cleanupOptions = framework.CleanupOptions{
-	Timeout:       cleanupTimeout,
-	RetryInterval: cleanupRetryInterval,
-}

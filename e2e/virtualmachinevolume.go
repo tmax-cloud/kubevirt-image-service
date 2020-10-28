@@ -3,7 +3,8 @@ package e2e
 import (
 	"context"
 	goerrors "errors"
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
+	hc "github.com/tmax-cloud/kubevirt-image-service/api/v1alpha1"
+	"github.com/tmax-cloud/kubevirt-image-service/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -11,13 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"kubevirt-image-service/pkg/apis"
-	hc "kubevirt-image-service/pkg/apis/hypercloud/v1alpha1"
-	vmv "kubevirt-image-service/pkg/controller/virtualmachinevolume"
-	"kubevirt-image-service/pkg/util"
+	kbtestutils "sigs.k8s.io/kubebuilder/test/e2e/utils"
 	"testing"
 )
 
-func virtualMachineVolumeTest(t *testing.T, ctx *framework.Context) {
+func virtualMachineVolumeTest(t *testing.T, ctx *kbtestutils.TestContext) {
 	ns, err := ctx.GetWatchNamespace()
 	if err != nil {
 		t.Fatal(err)

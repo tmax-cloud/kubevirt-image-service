@@ -101,7 +101,7 @@ rook_install)
   rook_install_command
   ;;
 operator-sdk_install)
-  curl -Lo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v0.17.1/operator-sdk-v0.17.1-x86_64-linux-gnu
+  curl -Lo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v1.0.1/operator-sdk-v1.0.1-x86_64-linux-gnu
   chmod +x operator-sdk && sudo mv operator-sdk /usr/local/bin
   ;;
 build)
@@ -112,7 +112,15 @@ lint)
   golangci-lint run ./... -v
 ;;
 unit)
-  go test -v ./pkg/... -ginkgo.v -ginkgo.failFast
+  # Setting test envs
+  ENVTEST_ASSETS_DIR=$(pwd)/testbin
+  mkdir -p ${ENVTEST_ASSETS_DIR}
+  test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
+  source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh
+  fetch_envtest_tools ${ENVTEST_ASSETS_DIR}
+  setup_envtest_env ${ENVTEST_ASSETS_DIR}
+  # This part is not needed when https://github.com/operator-framework/operator-sdk/issues/3692 issue is solved
+  go test -v ./controllers/... -ginkgo.v -ginkgo.failFast
 ;;
 codegen)
   codegen
